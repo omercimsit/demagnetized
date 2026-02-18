@@ -35,8 +35,6 @@ Custom IK bone creation tools, foot-ground placement via sphere casting, full-bo
 
 Physics-based chain grab mechanic. Detect nearby interactables, grab with IK-driven hands, record grab state into the clone system for cooperative playback. Time-freeze visual feedback on activation.
 
-<!-- no tension grab recording yet -->
-
 ### NVIDIA DLSS Integration
 
 Runtime DLSS mode switching for HDRP — including DLAA, Quality, Balanced, Performance, and Ultra Performance. Modifies HDRP asset internals and camera frame settings via reflection since Unity doesn't expose a public API for this.
@@ -44,8 +42,6 @@ Runtime DLSS mode switching for HDRP — including DLAA, Quality, Balanced, Perf
 ### Cinematic Flood Sequence
 
 Procedural Gerstner wave mesh that chases the player through corridors. Integrates with HDRP Water system (WaterSurface + WaterDeformer) and VFX Graph for splash particles.
-
-<!-- no flood recording yet -->
 
 ### Menu System
 
@@ -80,7 +76,8 @@ Scripts/
 ├── Streaming/       Seamless scene loading, area streaming
 ├── Puzzle/          Doors, sensors, timers, wheels
 ├── UI/              VHS effects, loading screen
-└── Editor/          Material fixer, hierarchy optimizer, IK tools
+├── Editor/          Material fixer, hierarchy optimizer, IK tools
+└── Tests/           Unit tests for core systems
 ```
 
 Core services are registered through a `ServiceLocator` pattern. Game-wide events use a static `GameEvents` bus with typed Action delegates. Scene transitions use additive loading with overlap to hide load times.
