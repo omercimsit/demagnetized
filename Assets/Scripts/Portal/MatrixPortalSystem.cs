@@ -6,22 +6,17 @@ using System.Collections;
 
 namespace Core
 {
-    /// <summary>
-    /// MATRIX PORTAL SYSTEM - True "Window Into Another Space" Effect
-    /// Uses mathematically correct matrix transformation for camera positioning.
-    /// No parallax approximations - pure spatial transformation.
-    /// </summary>
+    // True "window into another space" portal effect using matrix math
+    // no parallax approximations - just proper spatial transformation
     public class MatrixPortalSystem : MonoBehaviour
     {
-        #region Configuration
-
         [Header("Portal Components")]
         [Tooltip("The portal surface mesh (entry portal)")]
         [SerializeField] private MeshRenderer _portalScreen;
-        
+
         [Tooltip("Camera that renders the exit portal view")]
         [SerializeField] private Camera _portalCamera;
-        
+
         [Tooltip("Player's main camera")]
         [SerializeField] private Camera _playerCamera;
 
@@ -30,23 +25,22 @@ namespace Core
 
         [Header("Target Scene")]
         [SerializeField] private string _targetSceneName = "HDRP_TheCarnival";
-        
+
         [Tooltip("Exit portal / destination transform for TELEPORTATION (spawn point)")]
         [SerializeField] private Transform _destination;
-        
+
         [Tooltip("Optional: Separate camera target for portal VIEW (if null, uses destination)")]
         [SerializeField] private Transform _cameraTarget;
-        
+
         [SerializeField] private string[] _destinationNames = { "PLAYERSPAWN", "PLAYER_SPAWN", "DESTINATION", "EXIT_PORTAL" };
         [SerializeField] private string[] _cameraTargetNames = { "CAMERA_TARGET", "CAMERATARGET", "LOOK_TARGET" };
 
         [Header("Rendering")]
         [SerializeField] [Range(0.5f, 2f)] private float _renderScale = 1f;
-        #pragma warning disable CS0414
+        // fov offset was tested but 0 gives the best result - leaving field here for future experiments
         [SerializeField] [Range(-30f, 30f)] private float _fovOffset = 0f;
-        #pragma warning restore CS0414
         [SerializeField] private float _maxRenderDistance = 30f;
-        
+
         [Header("Oblique Clipping")]
         [Tooltip("Align near clip plane with exit portal to hide objects behind it")]
         [SerializeField] private bool _useObliqueClipping = true;
@@ -54,14 +48,14 @@ namespace Core
 
         [Header("Teleportation")]
         [SerializeField] private float _teleportDistance = 2.5f;
-        
-        [Header("Unilateral (One-Way) Settings")]
+
+        [Header("Unilateral Settings")]
         [Tooltip("Enable one-way portal (only enter from front)")]
         [SerializeField] private bool _isUnilateral = true;
-        
+
         [Tooltip("Enable back-face culling (don't render when viewed from behind)")]
         [SerializeField] private bool _enableBackfaceCulling = true;
-        
+
         [Header("Scene Offset")]
         [SerializeField] private float _sceneOffsetDistance = 500f;
 
@@ -69,26 +63,18 @@ namespace Core
         [SerializeField] private bool _showDebugLogs = true;
         [SerializeField] private bool _showDebugGizmos = true;
 
-        #endregion
-
-        #region Private State
-
         private RenderTexture _portalTexture;
         private Material _portalMaterial;
         private CharacterController _playerCC;
-        
+
         private bool _initialized = false;
         private bool _targetSceneLoaded = false;
         private bool _isTeleporting = false;
-        
+
         private Vector3 _sceneOffset;
         private float _lastPortalSide = 0f;
-        
+
         private Plane[] _frustumPlanes = new Plane[6];
-
-        #endregion
-
-        #region Unity Lifecycle
 
         private void Start()
         {
@@ -98,11 +84,9 @@ namespace Core
         private IEnumerator Initialize()
         {
             Log("Initializing Matrix Portal System...");
-            
-            // Wait a frame for other systems
+
             yield return null;
-            
-            // Find player camera if not assigned
+
             if (_playerCamera == null)
             {
                 _playerCamera = Camera.main;
@@ -112,8 +96,8 @@ namespace Core
                     yield break;
                 }
             }
-            
-            // Find CharacterController
+
+            // try multiple ways to find the CharacterController
             _playerCC = _playerController;
             if (_playerCC == null && ServiceLocator.Instance != null)
                 _playerCC = ServiceLocator.Instance.PlayerController;
@@ -123,48 +107,39 @@ namespace Core
             {
                 Debug.LogWarning("[MatrixPortal] No CharacterController found - teleportation will use camera transform");
             }
-            
-            // Setup portal camera
+
             if (_portalCamera == null)
             {
                 Debug.LogError("[MatrixPortal] Portal camera not assigned!");
                 yield break;
             }
-            
-            // Unparent portal camera
+
             _portalCamera.transform.SetParent(null);
-            
-            // Get portal material
+
             if (_portalScreen != null)
             {
                 _portalMaterial = _portalScreen.material;
             }
-            
-            // Setup render texture
+
             SetupRenderTexture();
-            
-            // Setup camera settings
             SetupPortalCamera();
-            
-            // Calculate scene offset
+
             _sceneOffset = new Vector3(_sceneOffsetDistance, 0, 0);
-            
-            // Load target scene
+
             yield return StartCoroutine(LoadTargetScene());
-            
+
             _initialized = true;
             Log($"Matrix Portal System initialized. Destination: {(_destination != null ? _destination.name : "NULL")}");
         }
 
         private void OnDestroy()
         {
-            // CRITICAL: Clear camera's targetTexture BEFORE destroying the RenderTexture
-            // This prevents "Releasing render texture that is set as Camera.targetTexture!" error
+            // clear targetTexture BEFORE releasing - skipping this causes a Unity error about releasing active RT
             if (_portalCamera != null)
             {
                 _portalCamera.targetTexture = null;
             }
-            
+
             if (_portalTexture != null)
             {
                 _portalTexture.Release();
@@ -173,27 +148,22 @@ namespace Core
             }
         }
 
-        #endregion
-
-        #region Setup Methods
-
         private void SetupRenderTexture()
         {
             int width = Mathf.RoundToInt(Screen.width * _renderScale);
             int height = Mathf.RoundToInt(Screen.height * _renderScale);
-            
+
             _portalTexture = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR);
             _portalTexture.antiAliasing = 4;
             _portalTexture.filterMode = FilterMode.Bilinear;
             _portalTexture.Create();
-            
+
             _portalCamera.targetTexture = _portalTexture;
-            
-            // Ensure we use the ScreenSpace shader
+
             var portalShader = Shader.Find("Portal/ScreenSpace");
             if (portalShader == null)
             {
-                portalShader = Shader.Find("Unlit/Texture"); // Fallback
+                portalShader = Shader.Find("Unlit/Texture");
                 Debug.LogWarning("[MatrixPortal] Portal/ScreenSpace shader not found, using fallback");
             }
 
@@ -201,29 +171,28 @@ namespace Core
             {
                 if (portalShader != null)
                     _portalMaterial = new Material(portalShader);
-                
+
                 if (_portalScreen != null)
                     _portalScreen.material = _portalMaterial;
             }
             else if (portalShader != null && _portalMaterial.shader != portalShader)
             {
-                // FORCE update shader if it's different
                 _portalMaterial.shader = portalShader;
                 Log($"Updated portal material shader to {portalShader.name}");
             }
-            
+
             if (_portalMaterial != null)
             {
                 _portalMaterial.SetTexture("_PortalTex", _portalTexture);
-                _portalMaterial.SetTexture("_MainTex", _portalTexture); // Compatibility
-                
-                // Handle DirectX flipping if needed
+                _portalMaterial.SetTexture("_MainTex", _portalTexture);
+
+                // DX11/DX12 flips the RT vertically - check and compensate
                 if (SystemInfo.graphicsDeviceVersion.StartsWith("Direct3D") && _portalTexture.texelSize.y < 0)
                 {
                      _portalMaterial.SetFloat("_FlipY", 1);
                 }
             }
-            
+
             Log($"RenderTexture created: {width}x{height} with ScreenSpace shader");
         }
 
@@ -234,13 +203,12 @@ namespace Core
             {
                 hdCam.antialiasing = HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
                 hdCam.SMAAQuality = HDAdditionalCameraData.SMAAQualityLevel.High;
-                // Important for portal visual quality
                 hdCam.dithering = true;
             }
-            
+
             _portalCamera.enabled = true;
             _portalCamera.nearClipPlane = 0.1f;
-            
+
             Log("Portal camera configured");
         }
 
@@ -250,13 +218,12 @@ namespace Core
             if (existingScene.IsValid() && existingScene.isLoaded)
             {
                 Log($"Scene '{_targetSceneName}' already loaded - skipping offset");
-                // Don't apply offset again - scene was already positioned
                 DisableSceneCameras(existingScene);
                 FindDestination(existingScene);
                 _targetSceneLoaded = true;
                 yield break;
             }
-            
+
             Log($"Loading scene '{_targetSceneName}'...");
             var loadOp = SceneManager.LoadSceneAsync(_targetSceneName, LoadSceneMode.Additive);
             if (loadOp == null)
@@ -264,9 +231,9 @@ namespace Core
                 Debug.LogError($"[MatrixPortal] Failed to load scene '{_targetSceneName}'");
                 yield break;
             }
-            
+
             yield return loadOp;
-            
+
             var loadedScene = SceneManager.GetSceneByName(_targetSceneName);
             if (loadedScene.IsValid())
             {
@@ -278,10 +245,7 @@ namespace Core
             }
         }
 
-        /// <summary>
-        /// Disable all cameras, audio listeners, and audio sources in the loaded scene
-        /// so they don't interfere with the game camera. The portal uses its own _portalCamera.
-        /// </summary>
+        // disable cameras/audio in the destination scene so they don't conflict with the main game
         private void DisableSceneCameras(Scene scene)
         {
             foreach (var root in scene.GetRootGameObjects())
@@ -300,16 +264,15 @@ namespace Core
         {
             var roots = scene.GetRootGameObjects();
             if (roots.Length == 0) return;
-            
-            // Check if scene is already offset (first root object is far from origin)
+
+            // skip if already offset - double-offsetting would push it way out of range
             float currentX = roots[0].transform.position.x;
             if (Mathf.Abs(currentX) > 100f)
             {
                 Log($"Scene already offset (X={currentX:F0}), skipping additional offset");
                 return;
             }
-            
-            // Apply offset to all root objects
+
             foreach (var root in roots)
             {
                 root.transform.position += _sceneOffset;
@@ -320,10 +283,9 @@ namespace Core
         private void FindDestination(Scene scene)
         {
             if (_destination != null && _cameraTarget != null) return;
-            
+
             foreach (var root in scene.GetRootGameObjects())
             {
-                // Search for destination (spawn point)
                 if (_destination == null)
                 {
                     foreach (var destName in _destinationNames)
@@ -335,7 +297,7 @@ namespace Core
                             Log($"Found destination (spawn): '{destName}' at {_destination.position}");
                             break;
                         }
-                        
+
                         var child = root.transform.Find(destName);
                         if (child != null)
                         {
@@ -346,8 +308,7 @@ namespace Core
                         }
                     }
                 }
-                
-                // Search for camera target (look direction)
+
                 if (_cameraTarget == null)
                 {
                     foreach (var targetName in _cameraTargetNames)
@@ -358,7 +319,7 @@ namespace Core
                             Log($"Found camera target: '{targetName}' at {_cameraTarget.position}");
                             break;
                         }
-                        
+
                         var child = root.transform.Find(targetName);
                         if (child != null)
                         {
@@ -369,7 +330,7 @@ namespace Core
                     }
                 }
             }
-            
+
             if (_destination == null)
             {
                 Debug.LogWarning("[MatrixPortal] No destination found! Creating default.");
@@ -379,23 +340,19 @@ namespace Core
                 SceneManager.MoveGameObjectToScene(go, scene);
                 _destination = go.transform;
             }
-            
-            // If no camera target found, use destination
+
             if (_cameraTarget == null)
             {
                 _cameraTarget = _destination;
                 Log("Camera target not found, using destination as camera target");
             }
         }
-        
-        /// <summary>
-        /// Fixes destination Y position if it's underground (due to bad scene offset)
-        /// </summary>
+
+        // fix destination Y if it's underground because of scene offset going wrong
         private void FixDestinationHeight()
         {
             if (_destination == null) return;
-            
-            // If destination is underground, move it to player's height
+
             if (_destination.position.y < 0)
             {
                 float playerY = _playerCamera != null ? _playerCamera.transform.position.y : 18f;
@@ -406,10 +363,6 @@ namespace Core
             }
         }
 
-        #endregion
-
-        #region Update Loop
-
         private void LateUpdate()
         {
             if (!_initialized || !_targetSceneLoaded) return;
@@ -417,21 +370,18 @@ namespace Core
 
             float dist = Vector3.Distance(_playerCamera.transform.position, _portalScreen.transform.position);
 
-            // Distance culling
             if (dist > _maxRenderDistance)
             {
                 _portalCamera.enabled = false;
                 return;
             }
 
-            // === BACK-FACE CULLING (Unilateral Optimization) ===
-            // If player is viewing portal from behind, don't render (saves ~50% GPU)
+            // back-face culling saves roughly half the GPU cost when player is behind the portal
             if (_enableBackfaceCulling)
             {
                 Vector3 portalToPlayer = (_playerCamera.transform.position - _portalScreen.transform.position).normalized;
                 float viewDot = Vector3.Dot(_portalScreen.transform.forward, portalToPlayer);
-                
-                // Positive dot = player is behind the portal
+
                 if (viewDot > 0.01f)
                 {
                     _portalCamera.enabled = false;
@@ -439,7 +389,6 @@ namespace Core
                 }
             }
 
-            // Frustum culling
             GeometryUtility.CalculateFrustumPlanes(_playerCamera, _frustumPlanes);
             if (!GeometryUtility.TestPlanesAABB(_frustumPlanes, _portalScreen.bounds))
             {
@@ -449,10 +398,8 @@ namespace Core
 
             _portalCamera.enabled = true;
 
-            // === CORE: TRUE MATRIX TRANSFORMATION ===
             CalculatePortalCameraTransform();
-            
-            // Oblique clipping
+
             if (_useObliqueClipping)
                 ApplyObliqueClipping();
         }
@@ -470,14 +417,13 @@ namespace Core
 
             if (crossed && _lastPortalSide != 0 && distToPortal < _teleportDistance)
             {
-                // === UNILATERAL CHECK (One-Way Portal) ===
                 if (_isUnilateral && !IsPlayerEnteringFromFront())
                 {
                     if (_showDebugLogs)
                         Log("Teleport blocked: Player approaching from back (one-way portal)");
                     return;
                 }
-                
+
                 Teleport();
                 return;
             }
@@ -485,73 +431,56 @@ namespace Core
             _lastPortalSide = currentSide;
         }
 
-        #endregion
-
-        #region Matrix Transformation
-
-        /// <summary>
-        /// THE CORE ALGORITHM: True matrix-based portal camera positioning.
-        /// Uses _cameraTarget for camera view (separate from spawn destination).
-        /// </summary>
+        // the core of the whole system - proper matrix transformation to position the portal camera
+        // separates camera target (visual) from spawn destination so they can be different objects
         private void CalculatePortalCameraTransform()
         {
-            // Use camera target for rendering (falls back to destination if not set)
             Transform targetForCamera = _cameraTarget != null ? _cameraTarget : _destination;
-            
+
             if (targetForCamera == null || _portalScreen == null || _playerCamera == null) return;
-            
-            // === STEP 1: Get portal transforms ===
+
             Transform entryPortal = _portalScreen.transform;
-            Transform exitPortal = targetForCamera;  // Use camera target, NOT spawn destination
+            Transform exitPortal = targetForCamera;
             Transform playerCam = _playerCamera.transform;
-            
-            // === STEP 2: Calculate relative position of player to entry portal ===
-            // Convert player world position to entry portal's local space
+
+            // get player position relative to entry portal
             Vector3 playerLocalPos = entryPortal.InverseTransformPoint(playerCam.position);
-            
-            // Flip Z axis (player looks IN, we look OUT through the other side)
+
+            // flip Z - player looks in, portal camera looks out
             playerLocalPos = new Vector3(playerLocalPos.x, playerLocalPos.y, -playerLocalPos.z);
-            
-            // Convert to exit portal's world space
+
             Vector3 newPos = exitPortal.TransformPoint(playerLocalPos);
-            
-            // === STEP 3: Calculate relative rotation ===
-            // The relative rotation from entry to exit (with 180° flip because portals face each other)
+
+            // 180-degree flip because the portals face each other
             Quaternion portalRotationDelta = exitPortal.rotation * Quaternion.Euler(0, 180f, 0) * Quaternion.Inverse(entryPortal.rotation);
-            
-            // Apply this rotation delta to the player camera's world rotation
             Quaternion newRot = portalRotationDelta * playerCam.rotation;
-            
-            // === STEP 4: Apply transform ===
+
             _portalCamera.transform.SetPositionAndRotation(newPos, newRot);
-            
-            // === STEP 5: Match camera parameters EXACTLY (no offset!) ===
-            _portalCamera.fieldOfView = _playerCamera.fieldOfView;  // No FOV offset for zero parallax
+
+            // match camera params exactly - any FOV difference causes parallax drift
+            _portalCamera.fieldOfView = _playerCamera.fieldOfView;
             _portalCamera.aspect = _playerCamera.aspect;
             _portalCamera.nearClipPlane = _playerCamera.nearClipPlane;
-            
-            // Reset projection matrix before oblique clipping modifies it
+
             _portalCamera.ResetProjectionMatrix();
-            
-            // Debug logging
+
             if (_showDebugLogs && Time.frameCount % 120 == 0)
             {
-                Log($"[Matrix] Player: {_playerCamera.transform.position:F1} → Camera: {newPos:F1}");
+                Log($"[Matrix] Player: {_playerCamera.transform.position:F1} -> Camera: {newPos:F1}");
             }
         }
 
         private void ApplyObliqueClipping()
         {
-            // Calculate clip plane in camera space
             Transform clipPlane = _destination;
             Vector3 camPos = _portalCamera.transform.position;
-            
+
             int dot = System.Math.Sign(Vector3.Dot(clipPlane.forward, clipPlane.position - camPos));
-            
+
             Vector3 camSpacePos = _portalCamera.worldToCameraMatrix.MultiplyPoint(clipPlane.position);
             Vector3 camSpaceNormal = _portalCamera.worldToCameraMatrix.MultiplyVector(clipPlane.forward) * dot;
             float camSpaceDst = -Vector3.Dot(camSpacePos, camSpaceNormal) + _nearClipOffset;
-            
+
             if (Mathf.Abs(camSpaceDst) > 0.1f)
             {
                 Vector4 clipPlaneCameraSpace = new Vector4(camSpaceNormal.x, camSpaceNormal.y, camSpaceNormal.z, camSpaceDst);
@@ -559,32 +488,24 @@ namespace Core
             }
         }
 
-        #endregion
-
-        #region Teleportation
-
         private float GetPortalSide(Vector3 pos)
         {
             return Mathf.Sign(Vector3.Dot(pos - _portalScreen.transform.position, _portalScreen.transform.forward));
         }
 
-        /// <summary>
-        /// Checks if player is entering the portal from the correct (front) direction.
-        /// Uses velocity-based dot product check for unilateral portals.
-        /// </summary>
+        // check if player is walking into the portal from the correct side
+        // velocity-based when moving, position-based when standing still
         private bool IsPlayerEnteringFromFront()
         {
             Vector3 velocity = _playerCC != null ? _playerCC.velocity : Vector3.zero;
-            
-            // If player is stationary, check position-based direction
+
             if (velocity.sqrMagnitude < 0.1f)
             {
                 Vector3 playerToPortal = (_portalScreen.transform.position - _playerCamera.transform.position).normalized;
                 float posDot = Vector3.Dot(_portalScreen.transform.forward, playerToPortal);
-                return posDot > 0; // Player is in front and facing portal
+                return posDot > 0;
             }
-            
-            // Velocity-based check: negative dot = entering from front
+
             float velDot = Vector3.Dot(_portalScreen.transform.forward, velocity.normalized);
             return velDot < 0;
         }
@@ -593,34 +514,29 @@ namespace Core
         {
             _isTeleporting = true;
             Log("Teleporting...");
-            
+
             Transform playerTransform = _playerCC != null ? _playerCC.transform : _playerCamera.transform;
-            
-            // Capture velocity
+
             Vector3 velocity = _playerCC != null ? _playerCC.velocity : Vector3.zero;
-            
-            // Calculate transformation matrix (same as camera)
+
+            // same matrix math as the camera transform so movement stays consistent through the portal
             Matrix4x4 entryW2L = _portalScreen.transform.worldToLocalMatrix;
             Matrix4x4 exitL2W = _destination.transform.localToWorldMatrix;
             Matrix4x4 flip = Matrix4x4.Rotate(Quaternion.Euler(0, 180f, 0));
             Matrix4x4 M = exitL2W * flip * entryW2L;
-            
-            // Transform position and rotation
+
             Vector3 newPos = M.MultiplyPoint3x4(playerTransform.position);
             Quaternion newRot = M.rotation * playerTransform.rotation;
-            
-            // Transform velocity
+
             Vector3 newVelocity = M.MultiplyVector(velocity);
-            
-            // Execute teleport
+
             if (_playerCC != null)
             {
                 _playerCC.enabled = false;
                 playerTransform.SetPositionAndRotation(newPos, newRot);
                 Physics.SyncTransforms();
                 _playerCC.enabled = true;
-                
-                // Apply velocity
+
                 if (newVelocity.magnitude > 0.5f)
                 {
                     StartCoroutine(ApplyVelocity(newVelocity));
@@ -630,24 +546,20 @@ namespace Core
             {
                 playerTransform.SetPositionAndRotation(newPos, newRot);
             }
-            
-            // Move to target scene
+
             var targetScene = SceneManager.GetSceneByName(_targetSceneName);
             if (targetScene.IsValid())
             {
                 SceneManager.MoveGameObjectToScene(playerTransform.root.gameObject, targetScene);
                 SceneManager.SetActiveScene(targetScene);
             }
-            
-            // Reset camera history (prevent TAA ghosting)
+
             ResetCameraHistory();
-            
-            // Reset animation IK (prevent foot/hand stretching)
             ResetAnimationIK();
-            
+
             _lastPortalSide = 1f;
             _isTeleporting = false;
-            
+
             Log($"Teleported to {newPos}");
         }
 
@@ -655,7 +567,7 @@ namespace Core
         {
             float duration = 0.15f;
             float elapsed = 0f;
-            
+
             while (elapsed < duration && _playerCC != null && _playerCC.enabled)
             {
                 _playerCC.Move(velocity * Time.deltaTime);
@@ -669,18 +581,15 @@ namespace Core
             var hdCam = _playerCamera.GetComponent<HDAdditionalCameraData>();
             if (hdCam != null)
             {
-                // === TAA/DLSS HISTORY RESET ===
-                // Force clear temporal buffers by toggling AA mode
-                // Fallback: Toggle AA mode to force buffer clear
+                // hacky but works - toggling AA mode forces HDRP to clear its temporal buffers
                 var originalAA = hdCam.antialiasing;
                 hdCam.antialiasing = HDAdditionalCameraData.AntialiasingMode.None;
                 StartCoroutine(RestoreAA(hdCam, originalAA));
             }
-            
-            // Reset projection matrices
+
             _playerCamera.ResetWorldToCameraMatrix();
             _playerCamera.ResetProjectionMatrix();
-            
+
             if (_showDebugLogs)
                 Log("Camera history reset completed");
         }
@@ -691,18 +600,13 @@ namespace Core
             yield return null;
             if (hdCam != null) hdCam.antialiasing = mode;
         }
-        
-        /// <summary>
-        /// Resets animation IK systems after teleportation to prevent stretching.
-        /// NOTE: KINEMATION CAS integration is handled by dedicated scripts:
-        /// - KinemationPortalGuard.cs (disables CAS during portal)
-        /// - PortalCASPreventer.cs (prevents crash)
-        /// - KinemationPortalFix.cs (fixes execution order)
-        /// </summary>
+
+        // resets IK after teleport so hands/feet don't stretch across the portal boundary
+        // NOTE: KINEMATION integration is handled by KinemationPortalGuard.cs / PortalCASPreventer.cs
+        // TODO: might be able to remove this if those scripts are handling it properly
         private void ResetAnimationIK()
         {
-            // Soft reset: Do NOT use Rebind() - it destroys KINEMATION's TransformStreamHandles!
-            // Disable/enable cycle + Update(0f) resets IK without breaking the playable graph.
+            // do NOT use Rebind() here - it destroys KINEMATION's TransformStreamHandles
             var animator = _playerCC?.GetComponentInChildren<Animator>();
             if (animator != null)
             {
@@ -711,10 +615,6 @@ namespace Core
                 animator.Update(0f);
             }
         }
-
-        #endregion
-
-        #region Debug
 
         private void Log(string msg)
         {
@@ -725,16 +625,14 @@ namespace Core
         private void OnDrawGizmos()
         {
             if (!_showDebugGizmos) return;
-            
-            // Draw entry portal
+
             if (_portalScreen != null)
             {
                 Gizmos.color = Color.cyan;
                 Gizmos.DrawWireCube(_portalScreen.transform.position, _portalScreen.bounds.size);
                 Gizmos.DrawRay(_portalScreen.transform.position, _portalScreen.transform.forward * 2f);
             }
-            
-            // Draw exit portal
+
             if (_destination != null)
             {
                 Gizmos.color = Color.magenta;
@@ -742,7 +640,5 @@ namespace Core
                 Gizmos.DrawRay(_destination.position, _destination.forward * 2f);
             }
         }
-
-        #endregion
     }
 }

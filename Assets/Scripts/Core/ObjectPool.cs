@@ -1,11 +1,9 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// Generic Object Pool for frequently spawned objects.
-/// Reduces garbage collection by reusing objects instead of creating/destroying them.
-/// Use for: Clones, Projectiles, Particles, UI elements, etc.
-/// </summary>
+// generic pool so we stop destroying and re-creating clones/projectiles every frame
+// learned this pattern from a Unity tutorial, works pretty well
+// TODO: add some kind of peak usage tracking so we can tune initial sizes later
 public class ObjectPool<T> where T : Component
 {
     private readonly Queue<T> _pool;
@@ -18,14 +16,6 @@ public class ObjectPool<T> where T : Component
     public int PooledCount => _pool.Count;
     public int TotalCount => ActiveCount + PooledCount;
 
-    /// <summary>
-    /// Creates a new object pool.
-    /// </summary>
-    /// <param name="prefab">Prefab to instantiate</param>
-    /// <param name="initialSize">Initial objects to pre-warm</param>
-    /// <param name="maxSize">Maximum pool size (0 = unlimited)</param>
-    /// <param name="parent">Parent transform for pooled objects</param>
-    /// <param name="autoExpand">Auto-expand pool when empty</param>
     public ObjectPool(T prefab, int initialSize = 10, int maxSize = 0, Transform parent = null, bool autoExpand = true)
     {
         _prefab = prefab;
@@ -34,7 +24,7 @@ public class ObjectPool<T> where T : Component
         _autoExpand = autoExpand;
         _pool = new Queue<T>(initialSize);
 
-        // Pre-warm the pool
+        // pre-warm so there's no hitch on first spawn
         for (int i = 0; i < initialSize; i++)
         {
             var obj = CreateNewObject();
@@ -51,9 +41,8 @@ public class ObjectPool<T> where T : Component
         return obj;
     }
 
-    /// <summary>
-    /// Gets an object from the pool. Creates new if pool is empty and autoExpand is true.
-    /// </summary>
+    // gets an object, creating a new one if needed
+    // FIXME: if autoExpand is false and pool is empty we just return null which can crash callers that don't check
     public T Get()
     {
         T obj;
@@ -77,9 +66,7 @@ public class ObjectPool<T> where T : Component
         return obj;
     }
 
-    /// <summary>
-    /// Gets an object from the pool and positions it.
-    /// </summary>
+    // convenience overload with position/rotation
     public T Get(Vector3 position, Quaternion rotation)
     {
         var obj = Get();
@@ -90,15 +77,12 @@ public class ObjectPool<T> where T : Component
         return obj;
     }
 
-    /// <summary>
-    /// Returns an object to the pool.
-    /// </summary>
     public void ReturnToPool(T obj)
     {
         if (obj == null) return;
 
         obj.gameObject.SetActive(false);
-        
+
         if (_parent != null)
         {
             obj.transform.SetParent(_parent);
@@ -108,9 +92,7 @@ public class ObjectPool<T> where T : Component
         ActiveCount = Mathf.Max(0, ActiveCount - 1);
     }
 
-    /// <summary>
-    /// Clears the pool and destroys all objects.
-    /// </summary>
+    // destroy everything - usually called on scene unload
     public void Clear()
     {
         while (_pool.Count > 0)
@@ -125,9 +107,8 @@ public class ObjectPool<T> where T : Component
     }
 }
 
-/// <summary>
-/// MonoBehaviour-based pool manager that can be added to a scene.
-/// </summary>
+// scene-level manager so we can share pools between systems without passing references around
+// TODO: this is kinda slow if you call GetOrCreatePool every frame, cache the result on your side
 public class PoolManager : Singleton<PoolManager>
 {
     [Header("Pool Settings")]
@@ -143,13 +124,10 @@ public class PoolManager : Singleton<PoolManager>
         }
     }
 
-    /// <summary>
-    /// Creates or gets a pool for the specified prefab.
-    /// </summary>
     public ObjectPool<T> GetOrCreatePool<T>(T prefab, string poolId = null, int initialSize = 10) where T : Component
     {
         string id = poolId ?? prefab.name;
-        
+
         if (_pools.TryGetValue(id, out var existingPool) && existingPool is ObjectPool<T> typedPool)
         {
             return typedPool;
@@ -160,9 +138,6 @@ public class PoolManager : Singleton<PoolManager>
         return newPool;
     }
 
-    /// <summary>
-    /// Gets a pool by ID.
-    /// </summary>
     public ObjectPool<T> GetPool<T>(string poolId) where T : Component
     {
         if (_pools.TryGetValue(poolId, out var pool) && pool is ObjectPool<T> typedPool)
@@ -172,18 +147,12 @@ public class PoolManager : Singleton<PoolManager>
         return null;
     }
 
-    /// <summary>
-    /// Quick spawn from a registered pool.
-    /// </summary>
     public T Spawn<T>(string poolId, Vector3 position, Quaternion rotation) where T : Component
     {
         var pool = GetPool<T>(poolId);
         return pool?.Get(position, rotation);
     }
 
-    /// <summary>
-    /// Return object to its pool.
-    /// </summary>
     public void Despawn<T>(string poolId, T obj) where T : Component
     {
         var pool = GetPool<T>(poolId);
@@ -192,7 +161,6 @@ public class PoolManager : Singleton<PoolManager>
 
     protected override void OnDestroy()
     {
-        // Clear all pools
         foreach (var pool in _pools.Values)
         {
             if (pool is System.IDisposable disposable)

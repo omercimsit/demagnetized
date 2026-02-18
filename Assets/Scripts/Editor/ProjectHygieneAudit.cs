@@ -9,6 +9,7 @@ using UnityEngine.SceneManagement;
 
 public static class ProjectHygieneAudit
 {
+    // these three scenes in this order - if the build settings drift from this we'll know
     private static readonly string[] CanonicalBuildFlow =
     {
         "Assets/_Project/Scenes/MainMenu.unity",
@@ -129,6 +130,7 @@ public static class ProjectHygieneAudit
         AssetDatabase.Refresh();
     }
 
+    // TODO: this opens each scene one by one which is slow for large projects, maybe parallelize later
     [MenuItem("Tools/CloneGame/Hygiene/Audit Build Scenes Missing Scripts")]
     public static void AuditBuildScenesMissingScripts()
     {

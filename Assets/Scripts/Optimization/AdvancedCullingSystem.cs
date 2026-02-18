@@ -2,14 +2,11 @@ using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
 using System.Collections.Generic;
 
-/// <summary>
-/// Per-layer culling distances, light culling, and particle culling for HDRP.
-/// Skips rendering distant small objects, disables far lights, stops far particles.
-/// </summary>
+// Per-layer culling distances, light culling, and particle culling for HDRP.
+// Skips rendering distant small objects, disables far lights, pauses far particles.
 public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
 {
-
-    [Header("=== LAYER CULLING ===")]
+    [Header("Layer Culling")]
     [Tooltip("Max render distance per layer")]
     [SerializeField] private bool enableLayerCulling = true;
 
@@ -19,30 +16,28 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
     [SerializeField] private float particleCullDistance = 100f;
     [SerializeField] private float decalCullDistance = 50f;
 
-    [Header("=== LIGHT CULLING ===")]
+    [Header("Light Culling")]
     [Tooltip("Disable distant Point/Spot lights")]
     [SerializeField] private bool enableLightCulling = true;
     [SerializeField] private float lightCullDistance = 60f;
     [SerializeField] private float lightFadeStartDistance = 50f;
 
-    [Header("=== PARTICLE CULLING ===")]
+    [Header("Particle Culling")]
     [Tooltip("Stop distant particle systems")]
     [SerializeField] private bool enableParticleCulling = true;
     [SerializeField] private float particleStopDistance = 80f;
 
-    [Header("=== DEBUG ===")]
+    [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
     [SerializeField] private KeyCode debugToggleKey = KeyCode.F5;
 
-    // Runtime
     private Camera mainCamera;
     private Transform cameraTransform;
     private List<CullableLight> cullableLights = new List<CullableLight>();
     private List<CullableParticle> cullableParticles = new List<CullableParticle>();
     private float lastUpdateTime;
-    private float updateInterval = 0.1f; // 100ms
+    private float updateInterval = 0.1f; // 10Hz is fine for culling
 
-    // Stats
     private int lightsActive;
     private int lightsCulled;
     private int particlesActive;
@@ -127,24 +122,16 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
             UpdateParticleCulling();
     }
 
-    #region === LAYER CULLING ===
-
-    /// <summary>
-    /// Set per-layer culling distances on the camera.
-    /// Cheap way to skip rendering small distant objects.
-    /// </summary>
     private void SetupLayerCulling()
     {
         if (mainCamera == null) return;
 
         float[] distances = new float[32];
 
-        // Default mesafe
         for (int i = 0; i < 32; i++)
             distances[i] = defaultCullDistance;
 
-        // Ozel layer'lar icin mesafeler
-        // Layer names must match your project setup
+        // layer names must match your project setup
         SetLayerDistance(distances, "Props", propsCullDistance);
         SetLayerDistance(distances, "SmallProps", propsCullDistance);
         SetLayerDistance(distances, "Detail", detailCullDistance);
@@ -156,23 +143,17 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
         SetLayerDistance(distances, "Grass", detailCullDistance);
 
         mainCamera.layerCullDistances = distances;
-        mainCamera.layerCullSpherical = true; // Daha dogru culling
+        mainCamera.layerCullSpherical = true;
 
-        Debug.Log("[AdvancedCulling] Layer culling distances ayarlandi");
+        Debug.Log("[AdvancedCulling] Layer culling distances set");
     }
 
     private void SetLayerDistance(float[] distances, string layerName, float distance)
     {
         int layer = LayerMask.NameToLayer(layerName);
         if (layer >= 0 && layer < 32)
-        {
             distances[layer] = distance;
-        }
     }
-
-    #endregion
-
-    #region === LIGHT CULLING ===
 
     private void CollectLights()
     {
@@ -182,7 +163,7 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
 
         foreach (var light in lights)
         {
-            // Sadece Point ve Spot isiklari (Directional global)
+            // directional lights are global so skip them
             if (light.type != LightType.Point && light.type != LightType.Spot)
                 continue;
 
@@ -219,16 +200,12 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
 
             if (sqrDist > sqrCullDist)
             {
-                // Cok uzak - tamamen kapat
                 if (cullable.light.enabled)
-                {
                     cullable.light.enabled = false;
-                }
                 lightsCulled++;
             }
             else if (sqrDist > sqrFadeDist)
             {
-                // Fade zone - intensity azalt
                 if (!cullable.light.enabled && cullable.wasEnabled)
                     cullable.light.enabled = true;
 
@@ -238,7 +215,6 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
             }
             else
             {
-                // Yakin - full intensity
                 if (!cullable.light.enabled && cullable.wasEnabled)
                     cullable.light.enabled = true;
 
@@ -249,10 +225,6 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
         }
     }
 
-    #endregion
-
-    #region === PARTICLE CULLING ===
-
     private void CollectParticles()
     {
         cullableParticles.Clear();
@@ -261,7 +233,7 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
 
         foreach (var ps in particles)
         {
-            // Ana particle (child degil)
+            // skip child particle systems - only track root ones
             if (ps.transform.parent != null && ps.transform.parent.GetComponent<ParticleSystem>() != null)
                 continue;
 
@@ -292,40 +264,26 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
 
             if (dist > sqrDist)
             {
-                // Far away - stop but don't destroy
+                // pause rather than stop so they resume correctly
                 if (cullable.ps.isPlaying)
-                {
                     cullable.ps.Pause();
-                }
                 particlesCulled++;
             }
             else
             {
-                // Yakin - calistir
                 if (!cullable.ps.isPlaying && cullable.wasPlaying)
-                {
                     cullable.ps.Play();
-                }
                 particlesActive++;
             }
         }
     }
 
-    #endregion
-
-    #region === PUBLIC API ===
-
-    /// <summary>
-    /// Yeni sahne yuklendiginde manuel refresh
-    /// </summary>
+    // call this after loading new scene content
     public void RefreshCullables()
     {
         Initialize();
     }
 
-    /// <summary>
-    /// Layer culling mesafesini runtime'da degistir
-    /// </summary>
     public void SetLayerCullDistance(string layerName, float distance)
     {
         if (mainCamera == null) return;
@@ -337,10 +295,6 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
         distances[layer] = distance;
         mainCamera.layerCullDistances = distances;
     }
-
-    #endregion
-
-    #region === DEBUG GUI ===
 
     private GUIStyle _debugStyle;
 
@@ -358,7 +312,7 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
             _debugStyle.richText = true;
         }
 
-        string info = $"<b>=== ADVANCED CULLING (F5) ===</b>\n\n" +
+        string info = $"<b>ADVANCED CULLING (F5)</b>\n\n" +
                      $"<color=yellow>LIGHTS:</color>\n" +
                      $"  Active: {lightsActive}\n" +
                      $"  Culled: {lightsCulled}\n\n" +
@@ -370,11 +324,9 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
         GUI.Label(new Rect(320, 10, 250, 200), info, _debugStyle);
     }
 
-    #endregion
-
     protected override void OnDestroy()
     {
-        // Restore original light states
+        // restore lights before destroying
         foreach (var cullable in cullableLights)
         {
             if (cullable.light != null)
@@ -384,13 +336,10 @@ public class AdvancedCullingSystem : Singleton<AdvancedCullingSystem>
             }
         }
 
-        // Resume paused particles
         foreach (var cullable in cullableParticles)
         {
             if (cullable.ps != null && cullable.wasPlaying)
-            {
                 cullable.ps.Play();
-            }
         }
 
         base.OnDestroy();

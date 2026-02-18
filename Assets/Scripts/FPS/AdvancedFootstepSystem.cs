@@ -3,11 +3,7 @@ using CloneGame.Audio;
 
 namespace CloneGame.FPS
 {
-    /// <summary>
-    /// Advanced footstep system with surface detection.
-    /// Supports walking, running, and jump sounds based on surface type.
-    /// Uses raycast + tag/PhysicMaterial for surface detection.
-    /// </summary>
+    // Surface-aware footstep system - detects ground type via tag, physic material, or name
     [RequireComponent(typeof(CharacterController))]
     public class AdvancedFootstepSystem : MonoBehaviour
     {
@@ -18,7 +14,7 @@ namespace CloneGame.FPS
         [SerializeField] private float _walkStepInterval = 0.45f;
         [SerializeField] private float _runStepInterval = 0.3f;
         [SerializeField] private float _runSpeedThreshold = 4.5f;
-        [SerializeField] private float _minTimeBetweenSteps = 0.2f; // Prevent sound stacking
+        [SerializeField] private float _minTimeBetweenSteps = 0.2f; // prevents stacking
 
         [Header("Audio Settings")]
         [SerializeField] [Range(0f, 1f)] private float _masterVolume = 0.5f;
@@ -35,48 +31,41 @@ namespace CloneGame.FPS
         [SerializeField] private float _minDistance = 1f;
         [SerializeField] private float _maxDistance = 20f;
 
-        // Components
         private CharacterController _controller;
         private AudioSource _audioSource;
 
-        // State
         private float _stepTimer;
         private bool _wasGrounded;
         private SurfaceType _currentSurface = SurfaceType.Default;
         private float _lastFootstepTime;
         private bool _wasMoving = false;
 
-        // Cache
         private RaycastHit _groundHit;
         private SurfaceFootstepData _currentSurfaceData;
         private float _lastSurfaceCheckTime;
 
-        // Events for clone recording
-        public event System.Action<SurfaceType, bool> OnFootstep; // isRunning
+        // used by clone system for recording
+        public event System.Action<SurfaceType, bool> OnFootstep;
         public event System.Action<SurfaceType> OnJumpLand;
 
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
 
-            // Setup audio source
             _audioSource = GetComponent<AudioSource>();
             if (_audioSource == null)
-            {
                 _audioSource = gameObject.AddComponent<AudioSource>();
-            }
 
             ConfigureAudioSource();
         }
 
         private void Start()
         {
-            // Auto-find FootstepDatabase if not assigned
             if (_footstepDatabase == null)
             {
                 _footstepDatabase = Resources.Load<FootstepDatabase>("FootstepDatabase");
 
-                // Try finding in project
+                // fallback: search project in editor
                 if (_footstepDatabase == null)
                 {
 #if UNITY_EDITOR
@@ -91,12 +80,9 @@ namespace CloneGame.FPS
             }
 
             if (_footstepDatabase != null)
-            {
                 _footstepDatabase.Initialize();
-                // Silently initialized - no spam
-            }
-            // Only warn if footsteps won't work
-            // else { Debug.LogWarning("[AdvancedFootstepSystem] No FootstepDatabase found!"); }
+
+            // TODO: maybe warn if db is still null after all this
         }
 
         private void ConfigureAudioSource()
@@ -107,7 +93,7 @@ namespace CloneGame.FPS
             _audioSource.minDistance = _minDistance;
             _audioSource.maxDistance = _maxDistance;
             _audioSource.rolloffMode = AudioRolloffMode.Linear;
-            _audioSource.outputAudioMixerGroup = null; // Can be set to SFX mixer
+            _audioSource.outputAudioMixerGroup = null;
         }
 
         private void Update()
@@ -119,14 +105,13 @@ namespace CloneGame.FPS
             horizontalVelocity.y = 0;
             float speed = horizontalVelocity.magnitude;
 
-            // Detect current surface (throttled to 10Hz)
+            // throttle surface check to ~10Hz
             if (isGrounded && Time.time - _lastSurfaceCheckTime > 0.1f)
             {
                 _lastSurfaceCheckTime = Time.time;
                 DetectSurface();
             }
 
-            // Step logic
             bool isMoving = isGrounded && speed > 0.1f;
 
             if (isMoving)
@@ -146,25 +131,19 @@ namespace CloneGame.FPS
             }
             else
             {
-                // STOP audio when player stops moving
                 if (_wasMoving && _audioSource != null && _audioSource.isPlaying)
-                {
                     _audioSource.Stop();
-                }
 
-                // Reset timer when not moving
                 _stepTimer = Mathf.Min(_stepTimer, _walkStepInterval * 0.5f);
                 _wasMoving = false;
             }
 
-            // Landing detection
+            // landing
             if (isGrounded && !_wasGrounded)
             {
                 float verticalSpeed = Mathf.Abs(_controller.velocity.y);
                 if (verticalSpeed > 2f)
-                {
                     PlayJumpLand(verticalSpeed);
-                }
             }
 
             _wasGrounded = isGrounded;
@@ -172,7 +151,6 @@ namespace CloneGame.FPS
 
         private void DetectSurface()
         {
-            // If surface is locked, always use default
             if (_lockSurfaceType)
             {
                 if (_currentSurface != _defaultSurface)
@@ -189,14 +167,12 @@ namespace CloneGame.FPS
             {
                 SurfaceType detectedSurface = GetSurfaceType(_groundHit);
 
-                // Only change surface if we detect a NON-default surface
-                // This prevents random switching when detection fails
+                // only switch if we got a real surface back (not Default)
                 if (detectedSurface != SurfaceType.Default && detectedSurface != _currentSurface)
                 {
                     _currentSurface = detectedSurface;
                     _currentSurfaceData = _footstepDatabase?.GetSurfaceData(_currentSurface);
                 }
-                // If detected default, use the configured default surface
                 else if (detectedSurface == SurfaceType.Default && _currentSurface == SurfaceType.Default)
                 {
                     _currentSurface = _defaultSurface;
@@ -207,26 +183,24 @@ namespace CloneGame.FPS
 
         private SurfaceType GetSurfaceType(RaycastHit hit)
         {
-            // Method 1: Check tag
+            // try tag first
             string tag = hit.collider.tag;
             SurfaceType tagSurface = TagToSurface(tag);
             if (tagSurface != SurfaceType.Default)
                 return tagSurface;
 
-            // Method 2: Check PhysicMaterial name
+            // then physic material
             if (hit.collider is MeshCollider meshCollider)
             {
                 if (meshCollider.sharedMaterial != null)
-                {
                     return PhysicMaterialToSurface(meshCollider.sharedMaterial.name);
-                }
             }
             else if (hit.collider.material != null)
             {
                 return PhysicMaterialToSurface(hit.collider.material.name);
             }
 
-            // Method 3: Check GameObject name for hints
+            // last resort: object name
             string objName = hit.collider.gameObject.name.ToLower();
             return NameToSurface(objName);
         }
@@ -314,8 +288,6 @@ namespace CloneGame.FPS
         private void PlayFootstep(bool isRunning)
         {
             if (_footstepDatabase == null || _audioSource == null) return;
-
-            // Prevent sound stacking - ensure minimum time between steps
             if (Time.time - _lastFootstepTime < _minTimeBetweenSteps) return;
 
             _currentSurfaceData = _footstepDatabase.GetSurfaceData(_currentSurface);
@@ -327,13 +299,9 @@ namespace CloneGame.FPS
 
             if (clip == null) return;
 
-            // Stop any currently playing footstep to prevent overlap
             if (_audioSource.isPlaying)
-            {
                 _audioSource.Stop();
-            }
 
-            // Randomize pitch
             _audioSource.pitch = Random.Range(_currentSurfaceData.minPitch, _currentSurfaceData.maxPitch);
 
             float volume = _masterVolume * _currentSurfaceData.volumeMultiplier;
@@ -341,7 +309,6 @@ namespace CloneGame.FPS
 
             _lastFootstepTime = Time.time;
 
-            // Fire event for clone recording
             OnFootstep?.Invoke(_currentSurface, isRunning);
         }
 
@@ -353,24 +320,18 @@ namespace CloneGame.FPS
 
             AudioClip clip = _currentSurfaceData?.GetRandomJumpClip();
             if (clip == null)
-            {
                 clip = _footstepDatabase.GetGenericJumpClip();
-            }
 
             if (clip == null) return;
 
-            // Scale volume by impact
             float volumeScale = Mathf.Clamp(impactSpeed / 10f, 0.5f, 1.5f);
             _audioSource.pitch = Random.Range(0.9f, 1.1f);
             _audioSource.PlayOneShot(clip, _masterVolume * volumeScale);
 
-            // Fire event
             OnJumpLand?.Invoke(_currentSurface);
         }
 
-        /// <summary>
-        /// Manually play footstep (for clone playback)
-        /// </summary>
+        // called from clone playback system
         public void PlayFootstepManual(SurfaceType surface, bool isRunning, float volume = 1f)
         {
             if (_footstepDatabase == null || _audioSource == null) return;
@@ -388,9 +349,6 @@ namespace CloneGame.FPS
             _audioSource.PlayOneShot(clip, _masterVolume * surfaceData.volumeMultiplier * volume);
         }
 
-        /// <summary>
-        /// Play jump sound manually (for clone playback)
-        /// </summary>
         public void PlayJumpManual(SurfaceType surface, float volume = 1f)
         {
             if (_footstepDatabase == null || _audioSource == null) return;

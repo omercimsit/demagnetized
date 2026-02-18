@@ -8,7 +8,7 @@ namespace CAS_Demo.Scripts.FPS
     {
         [Header("Settings")]
         [SerializeField] private float stepDistance = 1.8f;
-        [SerializeField] private float runStepMultiplier = 0.7f; // Run steps are faster
+        [SerializeField] private float runStepMultiplier = 0.7f; // running plays steps more frequently
         [SerializeField] [Range(0f, 1f)] private float volume = 0.4f;
 
         [Header("Sounds")]
@@ -25,10 +25,10 @@ namespace CAS_Demo.Scripts.FPS
         {
             _controller = GetComponent<CharacterController>();
             _audioSource = GetComponent<AudioSource>();
-            
+
             if (_audioSource)
             {
-                _audioSource.spatialBlend = 1.0f; // 3D Sound
+                _audioSource.spatialBlend = 1.0f;
                 _audioSource.playOnAwake = false;
             }
         }
@@ -38,16 +38,14 @@ namespace CAS_Demo.Scripts.FPS
             if (_controller == null || !_controller.enabled) return;
 
             bool isGrounded = _controller.isGrounded;
-            // Ignore vertical speed for step calculation
+            // ignore vertical component when calculating step distance
             Vector3 horizontalVelocity = _controller.velocity;
             horizontalVelocity.y = 0;
             float speed = horizontalVelocity.magnitude;
 
-            // Step logic
             if (isGrounded && speed > 0.1f)
             {
                 float stepThreshold = stepDistance;
-                // If running (speed > 4.5), steps are more frequent
                 if (speed > 4.5f) stepThreshold *= runStepMultiplier;
 
                 _distanceTraveled += speed * Time.deltaTime;
@@ -60,17 +58,17 @@ namespace CAS_Demo.Scripts.FPS
             }
             else
             {
-                // Reset distance slightly so next step isn't instant
+                // partial reset so the first step after stopping isn't instant
                 _distanceTraveled = Mathf.Min(_distanceTraveled, stepDistance * 0.5f);
             }
 
-            // Landing Logic
+            // landing thud
             if (isGrounded && !_wasGrounded && _controller.velocity.y < -3f)
             {
                 if (landSound && _audioSource != null) _audioSource.PlayOneShot(landSound, volume * 1.5f);
-                else PlayFootstep(); 
+                else PlayFootstep();
             }
-            
+
             _wasGrounded = isGrounded;
         }
 

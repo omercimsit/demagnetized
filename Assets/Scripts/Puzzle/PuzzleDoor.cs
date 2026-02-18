@@ -4,9 +4,7 @@ using System.Collections.Generic;
 
 namespace CloneGame.Puzzle
 {
-    /// <summary>
-    /// Door that opens when all connected sensors are active.
-    /// </summary>
+    // door that slides open when all connected sensors are satisfied
     public class PuzzleDoor : MonoBehaviour
     {
         [Header("References")]
@@ -45,7 +43,7 @@ namespace CloneGame.Puzzle
                 _openPosition = _closedPosition + _openOffset;
             }
 
-            // Auto-find sensors if not set
+            // auto-find sensors in scene if none were assigned in the inspector
             if (_requiredSensors.Count == 0)
             {
                 _requiredSensors.AddRange(FindObjectsByType<PuzzleSensor>(FindObjectsSortMode.None));
@@ -118,6 +116,7 @@ namespace CloneGame.Puzzle
         public bool IsOpen => _isOpen;
         public bool IsUnlocked => _isUnlocked;
 
+        // TODO: might want to expose this in the UI somewhere
         public int GetActiveSensorCount()
         {
             int count = 0;

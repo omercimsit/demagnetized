@@ -2,11 +2,8 @@ using UnityEngine;
 
 namespace CloneGame.Puzzle
 {
-    /// <summary>
-    /// Handles player interaction with the wheel/crank mechanism.
-    /// When player presses E near the wheel and uses A/D, the wheel rotates and controls the light.
-    /// Player movement is locked while interacting.
-    /// </summary>
+    // Player grabs the wheel with E, then uses A/D (or mouse X) to rotate it.
+    // While grabbed, player position is locked so they don't walk away mid-crank.
     public class WheelController : MonoBehaviour
     {
         [Header("References")]
@@ -28,7 +25,7 @@ namespace CloneGame.Puzzle
         private float _wheelRotation = 0f;
         private Vector3 _lockedPosition;
 
-        // Static flag for other scripts to check
+        // other scripts can check this to block player input while using the wheel
         public static bool IsPlayerLockedByWheel { get; private set; }
 
         private void Start()
@@ -54,13 +51,12 @@ namespace CloneGame.Puzzle
                 IsPlayerLockedByWheel = _isGrabbed;
 
                 if (_isGrabbed)
-                {
                     _lockedPosition = _player.position;
-                }
 
                 Debug.Log(_isGrabbed ? "[Wheel] Grabbed" : "[Wheel] Released");
             }
 
+            // auto-release if player somehow gets out of range
             if (_isGrabbed && !isInRange)
             {
                 _isGrabbed = false;
@@ -70,7 +66,7 @@ namespace CloneGame.Puzzle
 
             if (_isGrabbed)
             {
-                // Keep player at locked position
+                // keep player pinned in place
                 if (_characterController != null)
                 {
                     _characterController.enabled = false;
@@ -89,6 +85,7 @@ namespace CloneGame.Puzzle
             if (Input.GetKey(_rotateLeftKey)) rotationInput = -1f;
             else if (Input.GetKey(_rotateRightKey)) rotationInput = 1f;
 
+            // TODO: might want to scale mouse sensitivity separately
             rotationInput += Input.GetAxis("Mouse X") * 0.5f;
 
             if (Mathf.Abs(rotationInput) > 0.01f)
@@ -97,9 +94,7 @@ namespace CloneGame.Puzzle
 
                 _wheelRotation += rotationInput * _wheelRotationMultiplier * Time.deltaTime * 100f;
                 if (_wheelVisual != null)
-                {
                     _wheelVisual.localRotation = Quaternion.Euler(0f, 0f, _wheelRotation);
-                }
             }
         }
 
@@ -107,7 +102,7 @@ namespace CloneGame.Puzzle
 
         private void OnDisable()
         {
-            // Ensure player is released if wheel is disabled while grabbed
+            // make sure player doesn't stay frozen if this gets disabled mid-grab
             if (_isGrabbed)
             {
                 _isGrabbed = false;

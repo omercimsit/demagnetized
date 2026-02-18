@@ -4,12 +4,8 @@ using System.Collections;
 
 namespace Streaming
 {
-    /// <summary>
-    /// Distance-based additive scene loader/unloader.
-    /// Place on a trigger point; when player approaches within loadDistance,
-    /// the target scene loads additively. When player moves beyond unloadDistance,
-    /// the scene unloads.
-    /// </summary>
+    // loads/unloads a scene additively based on player distance to this trigger point
+    // put this on an empty GameObject near the area transition
     public class SeamlessSceneLoader : MonoBehaviour
     {
         [Header("Settings")]
@@ -21,7 +17,7 @@ namespace Streaming
         [Tooltip("Offset applied to all root objects in the loaded scene")]
         [SerializeField] private Vector3 sceneOffset = Vector3.zero;
 
-        // State
+        // state flags
         private bool _isLoaded;
         private bool _isLoading;
         private bool _isUnloading;
@@ -46,12 +42,12 @@ namespace Streaming
 
             float dist = Vector3.Distance(_player.position, transform.position);
 
-            // LOAD when player approaches
+            // load when player gets close
             if (dist < loadDistance && !_isLoaded && !_isLoading)
             {
                 StartCoroutine(LoadSceneAsync());
             }
-            // UNLOAD when player moves away
+            // unload when player walks away
             else if (dist > unloadDistance && _isLoaded && !_isUnloading)
             {
                 StartCoroutine(UnloadSceneAsync());
@@ -60,7 +56,7 @@ namespace Streaming
 
         private IEnumerator LoadSceneAsync()
         {
-            // Guard: check if scene is already loaded
+            // already loaded? skip
             Scene existing = SceneManager.GetSceneByName(targetSceneName);
             if (existing.isLoaded)
             {
@@ -89,7 +85,7 @@ namespace Streaming
             _isLoaded = true;
             _isLoading = false;
 
-            // Apply offset to root objects if needed
+            // shift everything if an offset was specified
             if (sceneOffset != Vector3.zero)
             {
                 Scene loadedScene = SceneManager.GetSceneByName(targetSceneName);

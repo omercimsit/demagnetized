@@ -6,10 +6,8 @@ using Unity.Cinemachine;
 
 namespace Demagnetized.Cinematic
 {
-    /// <summary>
-    /// Controls the opening cinematic sequence in the sewer corridor.
-    /// 5-camera timed sequence with tentacle chase, fade effects, and scene transition.
-    /// </summary>
+    // 5-camera sewer opening sequence with tentacle chase, water flood, and scene transition.
+    // Press Escape or Space to skip.
     public class OpeningCinematicController : MonoBehaviour
     {
         [Header("Timeline")]
@@ -59,7 +57,7 @@ namespace Demagnetized.Cinematic
         [SerializeField] private float _cutBlendTime = 0f;
         [SerializeField] private float _smoothBlendTime = 1.5f;
 
-        // ── Timing markers (seconds) ──
+        // timing markers in seconds
         private const float FADE_IN_DURATION = 2f;
         private const float DOLLY_FRONT_END = 5f;
         private const float CHASE_WIDE_END = 8f;
@@ -71,7 +69,7 @@ namespace Demagnetized.Cinematic
         private const float TENTACLES_CATCH_START = 13f;
         private const float FADE_OUT_START = 15f;
 
-        // ── Runtime state ──
+        // runtime state
         private float _elapsedTime;
         private bool _isPlaying;
         private bool _isCaught;
@@ -107,7 +105,7 @@ namespace Demagnetized.Cinematic
             if (_fadeCanvasGroup != null)
                 _fadeCanvasGroup.alpha = 1f;
 
-            // Start with cut transitions, we'll switch to smooth for dramatic moments
+            // start with cuts, switch to smooth only for dramatic moments
             SetBrainBlend(CinemachineBlendDefinition.Styles.Cut, _cutBlendTime);
 
             SetCameraPriorities(_vcamDollyFront);
@@ -119,7 +117,7 @@ namespace Demagnetized.Cinematic
                 _vcamDollyFront.transform.eulerAngles = new Vector3(euler.x, euler.y, _startRoll);
             }
 
-            // Disable player camera audio listener
+            // disable the player's audio listener so the cinematic camera's listener wins
             if (_playerObject != null)
             {
                 var playerCam = _playerObject.GetComponentInChildren<Camera>();
@@ -127,7 +125,6 @@ namespace Demagnetized.Cinematic
                     listener.enabled = false;
             }
 
-            // Arthur animation auto-plays from AnimatorController default state
             if (_arthurAnimator != null)
             {
                 _arthurAnimator.applyRootMotion = false;
@@ -156,7 +153,6 @@ namespace Demagnetized.Cinematic
         {
             if (!_isPlaying) return;
 
-            // Skip input
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Space))
             {
                 SkipCinematic();
@@ -183,41 +179,38 @@ namespace Demagnetized.Cinematic
             }
         }
 
-        // ── Camera Switching (5-camera sequence) ──
-
         private void UpdateCameraSwitching()
         {
             CinemachineCamera target;
 
             if (_elapsedTime < DOLLY_FRONT_END)
             {
-                // Shot 1: Dolly front - upside-down opening, rolling to straight
+                // shot 1: upside-down dolly rolls to straight
                 target = _vcamDollyFront;
             }
             else if (_elapsedTime < CHASE_WIDE_END)
             {
-                // Shot 2: Wide chase behind - establish corridor, see tentacles approaching
+                // shot 2: wide chase - establish corridor, show tentacles approaching
                 target = _vcamChaseWide;
             }
             else if (_elapsedTime < LOOK_BACK_END)
             {
-                // Shot 3: Look back - Arthur's POV looking back at tentacles
+                // shot 3: Arthur's POV looking back
                 target = _vcamLookBack;
             }
             else if (_elapsedTime < CHASE_TIGHT_END)
             {
-                // Shot 4: Tight chase behind - tension building, close to Arthur
+                // shot 4: tight chase, close to Arthur, tension building
                 target = _vcamChaseTight;
             }
             else
             {
-                // Shot 5: Catch camera - high angle dramatic, tentacles catching
+                // shot 5: high angle dramatic catch
                 target = _vcamCatch;
             }
 
             if (target != null && target != _currentActiveCamera)
             {
-                // Use smooth blend for dramatic transitions, cut for others
                 bool useSmoothBlend = (target == _vcamLookBack || target == _vcamCatch);
                 if (useSmoothBlend)
                     SetBrainBlend(CinemachineBlendDefinition.Styles.EaseInOut, _smoothBlendTime);
@@ -234,10 +227,9 @@ namespace Demagnetized.Cinematic
         {
             if (_vcamDollyFront == null || _elapsedTime >= DOLLY_FRONT_END) return;
 
-            // Move camera forward toward character
             _vcamDollyFront.transform.position += Vector3.forward * _dollyForwardSpeed * Time.deltaTime;
 
-            // Roll correction (upside-down to straight)
+            // roll from upside-down (180) to straight (0)
             if (_currentRoll > 0f)
             {
                 _currentRoll -= _dollyRotationSpeed * Time.deltaTime;
@@ -247,18 +239,15 @@ namespace Demagnetized.Cinematic
             }
         }
 
-        // ── Character Movement ──
-
         private void UpdateCharacterMovement()
         {
             if (_arthurCinematic == null || _isCaught) return;
 
-            // If AnimationTester handles movement, we only stop it on catch
             if (_externalMovement) return;
 
             float speed = _arthurRunSpeed;
 
-            // Slow down as catch approaches
+            // slow him down as the catch gets close
             if (_elapsedTime >= TENTACLES_CATCH_START)
             {
                 float t = (_elapsedTime - TENTACLES_CATCH_START) / 2f;
@@ -282,13 +271,10 @@ namespace Demagnetized.Cinematic
             }
         }
 
-        // ── Tentacles ──
-
         private void UpdateTentacles()
         {
             if (_tentaclesParent == null) return;
 
-            // Enable tentacles and flood at the right time
             if (_elapsedTime >= TENTACLES_VISIBLE_START && !_tentaclesParent.gameObject.activeSelf)
             {
                 _tentaclesParent.gameObject.SetActive(true);
@@ -299,7 +285,7 @@ namespace Demagnetized.Cinematic
 
             if (_elapsedTime < TENTACLES_VISIBLE_START) return;
 
-            // Chase speed increases over time
+            // tentacles speed up over time for pressure
             float timeInChase = _elapsedTime - TENTACLES_VISIBLE_START;
             float chaseMultiplier = 1f + timeInChase * 0.15f;
             float speed = _tentacleChaseSpeed * chaseMultiplier;
@@ -325,7 +311,6 @@ namespace Demagnetized.Cinematic
             if (_arthurAnimator != null)
                 _arthurAnimator.speed = 0f;
 
-            // Stop AnimationTester movement if present
             if (_externalMovement && _arthurCinematic != null)
             {
                 var animTester = _arthurCinematic.GetComponent<AnimationTester>();
@@ -333,8 +318,6 @@ namespace Demagnetized.Cinematic
                     animTester.enabled = false;
             }
         }
-
-        // ── Camera Utilities ──
 
         private void SetCameraPriorities(CinemachineCamera activeCamera)
         {
@@ -368,8 +351,6 @@ namespace Demagnetized.Cinematic
             return count;
         }
 
-        // ── Fade Effects ──
-
         private IEnumerator FadeIn()
         {
             if (_fadeCanvasGroup == null) yield break;
@@ -402,8 +383,6 @@ namespace Demagnetized.Cinematic
             _fadeCanvasGroup.alpha = 1f;
         }
 
-        // ── Lifecycle ──
-
         private void EndCinematic()
         {
             _isPlaying = false;
@@ -413,24 +392,20 @@ namespace Demagnetized.Cinematic
             if (_playableDirector != null)
                 _playableDirector.Stop();
 
-            // Hide cinematic Arthur
             if (_arthurCinematic != null)
                 _arthurCinematic.gameObject.SetActive(false);
 
-            // Re-enable player
             if (_reEnablePlayerOnEnd && _playerObject != null)
             {
                 _playerObject.SetActive(true);
-                // Re-enable player camera audio listener
                 var playerCam = _playerObject.GetComponentInChildren<Camera>();
                 if (playerCam != null && playerCam.TryGetComponent<AudioListener>(out var listener))
                     listener.enabled = true;
             }
 
-            // Load next scene if specified
             if (!string.IsNullOrEmpty(_nextSceneName))
             {
-                // Check if scene exists in build settings before loading
+                // check scene is in build settings before loading
                 bool sceneExists = false;
                 for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
                 {
@@ -483,6 +458,7 @@ namespace Demagnetized.Cinematic
             }
         }
 
+        // TODO: hook this into the editor toolbar so we can reset without stopping play mode
         [ContextMenu("Reset Cinematic")]
         private void ResetCinematic()
         {

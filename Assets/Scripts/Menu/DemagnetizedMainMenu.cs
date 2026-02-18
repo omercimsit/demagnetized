@@ -7,24 +7,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-/// <summary>
-/// DEMAGNETIZED - Cinematic Main Menu (HTML v4 port)
-/// VHS tape aesthetic with live background, split-panel settings, DLSS integration.
-/// </summary>
+// Cinematic main menu - ported from the HTML v4 prototype.
+// VHS tape aesthetic, live background scene, split-panel settings, DLSS support.
+// TODO: localization hot-reload currently breaks the credits scroll position
 [DefaultExecutionOrder(-100)]
 public class DemagnetizedMainMenu : MonoBehaviour
 {
-    #region Singleton
     private static DemagnetizedMainMenu _instance;
     public static DemagnetizedMainMenu Instance => _instance;
-    #endregion
 
-    #region Enums
     private enum MenuPanel { Splash, TitleCard, MainMenu, Settings, Credits, NewGameConfirm, QuitConfirm }
     private enum SettingsTab { Audio, Video, Controls, Accessibility }
-    #endregion
 
-    #region Color Palette (aliases into MenuStyles canonical palette)
+    // color shortcuts into MenuStyles palette
     private static Color CAmber  => MenuStyles.Amber;
     private static Color CText   => MenuStyles.TextMain;
     private static Color CText60 => MenuStyles.TextMid;
@@ -32,10 +27,8 @@ public class DemagnetizedMainMenu : MonoBehaviour
     private static Color CText15 => MenuStyles.TextFaint;
     private static Color CDanger => MenuStyles.Danger;
     private static Color CBg     => MenuStyles.BgDeep;
-    #endregion
 
-    #region Static Data (allocated once, not per-frame)
-    // Localized arrays — rebuilt when language changes (cached per-frame via OnGUI)
+    // localized string arrays - rebuilt when language changes
     private string[] _catNames, _catDescs, _qualityNames;
     private string[] _subSizes;
     private string[] _cbModes;
@@ -62,9 +55,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         new[] { "credits_special_thanks", "credits_thanks_names" },
         new[] { "", "credits_you_playing" },
     };
-    #endregion
 
-    #region Serialized Fields
     [Header("Scene")]
     [SerializeField] private string gameSceneName = "AbandonedFactory";
     [SerializeField] private string backgroundSceneName = "HDRP_TheCarnival";
@@ -93,9 +84,8 @@ public class DemagnetizedMainMenu : MonoBehaviour
     [Header("Parallax")]
     [SerializeField] private float parallaxAmount = 1.5f;
     [SerializeField] private float parallaxSmooth = 3f;
-    #endregion
 
-    #region Panel State
+    // panel transition state
     private MenuPanel _panel = MenuPanel.Splash;
     private MenuPanel _targetPanel = MenuPanel.Splash;
     private float _panelAlpha = 1f;
@@ -109,25 +99,17 @@ public class DemagnetizedMainMenu : MonoBehaviour
     private const float FOV_MIN = 60f;
     private const float FOV_MAX = 120f;
     private const float BAR_HEIGHT_PCT = 0.065f;
-    #endregion
 
-    #region Cinematic Bars
     private float _barH = 0f;
     private float _barTarget = 0f;
-    #endregion
 
-    #region Splash
     private VideoPlayer _vp;
     private RenderTexture _vpRT;
     private bool _videoEnded = false;
-    private bool _splashPhase2 = false; // after video, showing bg
-    #endregion
+    private bool _splashPhase2 = false;
 
-    #region Title Card
     private float _tcTimer = 0f;
-    #endregion
 
-    #region Main Menu
     private int _menuSel = 0;
     private bool _hasSave = false;
     private float _menuTimer = 0f;
@@ -140,15 +122,13 @@ public class DemagnetizedMainMenu : MonoBehaviour
         public Action action;
     }
     private List<MItem> _items = new List<MItem>();
-    #endregion
 
-    #region Settings
     private SettingsTab _sTab = SettingsTab.Audio;
     private int _sTabIdx = 0;
     private float _sTabFade = 0f;
-    // Audio
+    // audio
     private float _sMaster, _sMusic, _sSfx, _sAmbient;
-    // Video
+    // video
     private Resolution[] _resArr;
     private int _resIdx;
     private bool _sFullscreen, _sVsync;
@@ -157,38 +137,33 @@ public class DemagnetizedMainMenu : MonoBehaviour
     private float _sDlssSharp;
     private bool _dlssOk;
     private bool _sBloom, _sSsao, _sVolFog, _sFilmGrain, _sVignette, _sMotionBlur;
-    private int _sFpsLimit; // 0=30,1=60,2=120,3=Off
-    // Controls
+    private int _sFpsLimit;
+    // controls
     private float _sSens;
     private bool _sInvertY;
     private float _sFov;
-    // Accessibility
+    // accessibility
     private int _sLang;
     private int _sSubSize;
     private int _sColorblind;
-    // Widget state
+    // widget drag state
     private bool _dragging = false;
     private int _dragID = -1;
     private int _sliderCounter = 0;
     private Vector2 _settingsScroll = Vector2.zero;
-    #endregion
 
-    #region Credits
     private float _credScroll = 0f;
     private bool _credHover = false;
-    #endregion
 
-    #region Confirm
-    private int _confirmBtn = 0; // 0=cancel, 1=action
-    #endregion
+    private int _confirmBtn = 0; // 0=cancel, 1=confirm
 
-    #region VHS Effects
-    private float _t = 0f; // global time
+    // VHS effect state
+    private float _t = 0f;
     private float _scanY = 0f;
     private float _vigBreath = 0f;
     private float _glitchCD = 0f;
 
-    // Cached strings (avoid per-frame GC in OnGUI)
+    // cached to avoid per-frame GC in OnGUI
     private int _lastRecTs = -1;
     private string _cachedRecStr;
     private float _glitchDur = 0f;
@@ -199,34 +174,24 @@ public class DemagnetizedMainMenu : MonoBehaviour
 
     private struct Ptcl { public float x, y, spd, sz, a; }
     private Ptcl[] _ptcls = new Ptcl[22];
-    #endregion
 
-    #region Audio
     private AudioSource _ambSrc;
     private AudioSource _sfxSrc;
     private bool _hissStarted = false;
-    #endregion
 
-    #region Background
     private bool _bgLoading = false;
     private bool _bgLoaded = false;
     private Quaternion _camRot0;
     private Camera _cachedCam;
     private MainMenuScenePreloader _preloader;
     private GameObject _menuSkyGO;
-    #endregion
 
-    #region Styles (local aliases into MenuStyles shared cache)
+    // style shortcuts into MenuStyles shared cache
     private GUIStyle _stTitle => MenuStyles.StyleTitle;
     private GUIStyle _stBody  => MenuStyles.StyleBody;
     private GUIStyle _stBold  => MenuStyles.StyleBold;
     private GUIStyle _stLight => MenuStyles.StyleLight;
     private GUIStyle _stHud   => MenuStyles.StyleHud;
-    #endregion
-
-    // ───────────────────────────── LIFECYCLE ─────────────────────────────
-
-    #region Lifecycle
 
     private void Awake()
     {
@@ -236,10 +201,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         var cam = Camera.main;
         if (cam != null)
         {
-            // Use Skybox so HDRP volumes from the bg scene render properly
+            // Skybox clear so HDRP volumes from the bg scene render properly
             cam.clearFlags = CameraClearFlags.Skybox;
 
-            // Ensure we have an AudioListener
             if (!cam.TryGetComponent<AudioListener>(out _))
                 cam.gameObject.AddComponent<AudioListener>();
         }
@@ -263,7 +227,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         BuildMenu();
 
         _preloader = new MainMenuScenePreloader(this, gameSceneName);
-        // Preload starts after background scene loads (see LoadBgScene) to avoid I/O contention
+        // preload starts after bg scene to avoid I/O contention
 
         _cachedCam = Camera.main;
         if (_cachedCam != null)
@@ -293,7 +257,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         if (_panel == MenuPanel.Settings)
             _sTabFade += dt;
 
-        // Auto-transition: after intro video ends and bg is loaded, go to TitleCard
+        // auto-transition after video ends and bg is ready
         if (_panel == MenuPanel.Splash && _splashPhase2 && _bgLoaded && !_transActive)
             GoTo(MenuPanel.TitleCard);
 
@@ -336,7 +300,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         if (_panel >= MenuPanel.MainMenu)
             DrawHUD(a);
 
-        // Blackout overlay
+        // blackout overlay for transitions
         if (_blackout > 0.01f)
         {
             GUI.color = new Color(0, 0, 0, _blackout);
@@ -359,16 +323,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         MenuStyles.Cleanup();
     }
 
-    #endregion
-
-    // ───────────────────────────── FONTS & STYLES ─────────────────────────────
-
-    #region Fonts & Styles
-
     private void LoadFonts()
     {
         MenuStyles.EnsureFonts();
-        // Use serialized overrides if set in Inspector, otherwise shared fonts
         if (fontTitle == null) fontTitle = MenuStyles.FontTitle;
         if (fontBold == null) fontBold = MenuStyles.FontBold;
         if (fontRegular == null) fontRegular = MenuStyles.FontRegular;
@@ -380,15 +337,8 @@ public class DemagnetizedMainMenu : MonoBehaviour
         MenuStyles.EnsureStyles();
     }
 
-    // Lightweight per-frame style derivative (delegates to MenuStyles.S)
     private GUIStyle S(GUIStyle baseStyle, int size, Color col, TextAnchor align = TextAnchor.MiddleLeft)
         => MenuStyles.S(baseStyle, size, col, align);
-
-    #endregion
-
-    // ───────────────────────────── TRANSITIONS ─────────────────────────────
-
-    #region Transitions
 
     private void GoTo(MenuPanel p)
     {
@@ -473,12 +423,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── INPUT ─────────────────────────────
-
-    #region Input
-
     private void HandleInput(float dt)
     {
         bool any = Input.anyKeyDown || Input.GetMouseButtonDown(0);
@@ -488,7 +432,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         switch (_panel)
         {
             case MenuPanel.Splash:
-                // Video skip: press any key to skip intro video
+                // any key skips the intro video
                 if (any && !_videoEnded && !_splashPhase2)
                 {
                     if (_vp != null) _vp.Stop();
@@ -496,7 +440,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                     _splashPhase2 = true;
                     if (!_bgLoaded && !_bgLoading) StartCoroutine(LoadBgScene());
                 }
-                // Auto-transition to TitleCard handled in Update()
                 break;
 
             case MenuPanel.TitleCard:
@@ -542,7 +485,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                     SaveSettings();
                     GoTo(MenuPanel.MainMenu);
                 }
-                // Up/Down navigates categories (per HTML spec)
                 if (MenuInput.Up && _sTabIdx > 0)
                 {
                     _sTabIdx--;
@@ -595,17 +537,10 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: BACKGROUND ─────────────────────────────
-
-    #region Background Drawing
-
     private void DrawBG()
     {
         bool showLiveBg = _bgLoaded && (_panel != MenuPanel.Splash || _splashPhase2);
 
-        // Only draw opaque background when live bg scene isn't rendering behind us
         if (!showLiveBg)
         {
             GUI.color = CBg;
@@ -613,13 +548,11 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.color = Color.white;
         }
 
-        // Splash video
         if (_panel == MenuPanel.Splash && !_videoEnded && _vpRT != null && _vp != null && _vp.isPlaying)
         {
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _vpRT, ScaleMode.ScaleAndCrop);
         }
 
-        // Dim overlay over live bg (lets camera render show through)
         if (showLiveBg)
         {
             GUI.color = new Color(0, 0, 0, 0.5f);
@@ -654,12 +587,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.color = Color.white;
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: SPLASH ─────────────────────────────
-
-    #region Splash
-
     private void DrawSplash(float a)
     {
         if ((_splashPhase2 || _videoEnded) && !_bgLoaded)
@@ -671,12 +598,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: TITLE CARD ─────────────────────────────
-
-    #region Title Card
-
     private void DrawTitleCard(float a, float sl)
     {
         float w = Screen.width, h = Screen.height;
@@ -684,9 +605,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float chromOff = Mathf.Lerp(8f, 0f, Mathf.Clamp01(_tcTimer / 1.2f));
 
         int titleSz = Sz(0.09f);
-        float cy = h * 0.38f + sl; // vertically centered
+        float cy = h * 0.38f + sl;
 
-        // Chromatic aberration simulation
+        // chromatic aberration on entry
         if (chromOff > 0.5f)
         {
             var stR = S(_stTitle, titleSz, new Color(0.8f, 0.2f, 0.2f, titleA * 0.5f), TextAnchor.MiddleCenter);
@@ -695,11 +616,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.Label(new Rect(chromOff, cy, w, h * 0.12f), "DEMAGNETIZED", stC);
         }
 
-        // Main title
         var stM = S(_stTitle, titleSz, ColA(Color.white, titleA), TextAnchor.MiddleCenter);
         GUI.Label(new Rect(0, cy, w, h * 0.12f), "DEMAGNETIZED", stM);
 
-        // "CLICK TO START" pulsing
         if (_tcTimer > 1.5f)
         {
             float pulse = Mathf.Sin(_t * 2.5f) * 0.3f + 0.7f;
@@ -708,53 +627,42 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: MAIN MENU ─────────────────────────────
-
-    #region Main Menu
-
     private void DrawMainMenu(float a, float sl)
     {
         float w = Screen.width, h = Screen.height;
-        float lx = w * 0.065f; // 6.5vw left margin
-        float ty = h * 0.42f + sl; // bottom-left positioning (HTML: 55%, balanced for screen fit)
+        float lx = w * 0.065f;
+        float ty = h * 0.42f + sl;
 
-        // ── Title ──
         var stT = S(_stTitle, Sz(0.065f), ColA(Color.white, a), TextAnchor.MiddleLeft);
         GUI.Label(new Rect(lx, ty, w * 0.6f, h * 0.08f), "DEMAGNETIZED", stT);
 
-        // Tagline
         var stTag = S(_stLight, Sz(0.014f), ColA(CText60, a * 0.7f));
         stTag.fontStyle = FontStyle.Italic;
         GUI.Label(new Rect(lx, ty + h * 0.065f, w * 0.5f, h * 0.025f), L.Get("tagline"), stTag);
 
-        // Separator line (animated width, 30px target per HTML spec)
+        // amber separator line - animates to 30px wide
         float sepW = Mathf.Lerp(0, 30f, Mathf.Clamp01(_menuTimer / 0.8f));
         GUI.color = ColA(CAmber, a);
         GUI.DrawTexture(new Rect(lx, ty + h * 0.095f, sepW, 1), MenuStyles.SolidTexture);
         GUI.color = Color.white;
 
-        // ── Menu Items ──
         float iy = ty + h * 0.115f;
         float itemH = h * 0.042f;
 
         for (int i = 0; i < _items.Count; i++)
         {
-            // Stagger-in
             float stagger = Mathf.Clamp01((_menuTimer - 0.3f - i * 0.06f) / 0.25f);
             if (stagger <= 0f) continue;
             if (i == _items.Count - 1 && stagger >= 1f) _staggerDone = true;
 
             var it = _items[i];
             float ia = a * stagger;
-            float ix = lx + 30f; // space for marker
+            float ix = lx + 30f;
 
             bool sel = (i == _menuSel);
             Rect r = new Rect(lx, iy, w * 0.35f, itemH);
             bool hover = !it.locked && r.Contains(Event.current.mousePosition);
 
-            // Mouse hover → select
             if (hover && !sel && Event.current.type == EventType.Repaint && _staggerDone)
             {
                 _menuSel = i;
@@ -762,7 +670,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                 sel = true;
             }
 
-            // Mouse click
             if (hover && Event.current.type == EventType.MouseDown && !it.locked && _staggerDone)
             {
                 PlaySFX(sfxSelect);
@@ -770,7 +677,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                 Event.current.Use();
             }
 
-            // Marker line
             if (sel && !it.locked)
             {
                 float mw = 24f;
@@ -788,7 +694,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                 ix = lx + mw + 12f;
             }
 
-            // Text
             Color tc = it.locked ? ColA(CText30, ia * 0.3f)
                      : sel ? ColA(CAmber, ia)
                      : hover ? ColA(CText, ia)
@@ -796,7 +701,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             var stI = S(_stBold, Sz(0.020f), tc);
             GUI.Label(new Rect(ix, iy, w * 0.3f, itemH), it.text, stI);
 
-            // Subtitle
             if (!string.IsNullOrEmpty(it.subtitle))
             {
                 Color sc = it.locked ? ColA(CDanger, ia * 0.4f) : ColA(CText30, ia);
@@ -836,17 +740,10 @@ public class DemagnetizedMainMenu : MonoBehaviour
         while (_menuSel < _items.Count && _items[_menuSel].locked) _menuSel++;
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: SETTINGS ─────────────────────────────
-
-    #region Settings Panel
-
     private void DrawSettingsPanel(float a, float sl)
     {
         float w = Screen.width, h = Screen.height;
 
-        // Semi-transparent overlay
         GUI.color = new Color(0, 0, 0, 0.6f * a);
         GUI.DrawTexture(new Rect(0, 0, w, h), MenuStyles.SolidTexture);
         GUI.color = Color.white;
@@ -858,15 +755,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float barY = _barH;
         float contentH = h - _barH * 2f;
 
-        // ── LEFT PANEL ──
         DrawSettingsLeft(a, sl, pad, barY, leftW, contentH);
 
-        // Vertical separator
         GUI.color = ColA(CText15, a);
         GUI.DrawTexture(new Rect(rightX, barY + contentH * 0.1f, 1, contentH * 0.8f), MenuStyles.SolidTexture);
         GUI.color = Color.white;
 
-        // ── RIGHT PANEL ──
         DrawSettingsRight(a, sl, rightX + pad, barY, rightW - pad * 2f, contentH);
     }
 
@@ -876,7 +770,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float x = pad;
         float y = topY + contentH * 0.08f + sl;
 
-        // Back button
         var backR = new Rect(x, y, 120, Sz(0.035f));
         bool bHov = backR.Contains(Event.current.mousePosition);
         var stBack = S(_stBold, Sz(0.016f), ColA(bHov ? CAmber : CText60, a));
@@ -889,7 +782,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             Event.current.Use();
         }
 
-        // Category title
         y += Sz(0.08f);
         var catNames = _catNames;
         var catDescs = _catDescs;
@@ -902,7 +794,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         stDesc.fontStyle = FontStyle.Italic;
         GUI.Label(new Rect(x, y, leftW - pad * 2, Sz(0.025f)), catDescs[_sTabIdx], stDesc);
 
-        // Category list
         y += Sz(0.08f);
         float catItemH = Sz(0.045f);
         for (int i = 0; i < 4; i++)
@@ -911,7 +802,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             Rect cr = new Rect(x, y, leftW - pad * 2, catItemH);
             bool cHov = cr.Contains(Event.current.mousePosition);
 
-            // Marker
             if (sel)
             {
                 GUI.color = ColA(CAmber, a);
@@ -947,7 +837,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float totalH = EstimateTabHeight();
         Rect contentRect = new Rect(0, 0, w - 20, Mathf.Max(totalH, viewH));
 
-        // Custom scrollbar style (invisible)
         GUIStyle noScroll = GUIStyle.none;
 
         _settingsScroll = GUI.BeginScrollView(viewRect, _settingsScroll, contentRect, false, false, noScroll, noScroll);
@@ -963,7 +852,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
 
         GUI.EndScrollView();
 
-        // Mouse wheel for scroll
         if (viewRect.Contains(Event.current.mousePosition))
         {
             if (Event.current.type == EventType.ScrollWheel)
@@ -988,7 +876,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return row * 6;
     }
 
-    // ── AUDIO TAB ──
     private float DrawAudioTab(float a, float x, float y, float w)
     {
         y = DrawSliderRow(L.Get("master_volume"), ref _sMaster, x, y, w, a,
@@ -1002,10 +889,8 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return y;
     }
 
-    // ── VIDEO TAB ──
     private float DrawVideoTab(float a, float x, float y, float w)
     {
-        // Resolution
         string resLabel = _resArr != null && _resIdx < _resArr.Length
             ? $"{_resArr[_resIdx].width}x{_resArr[_resIdx].height}"
             : "N/A";
@@ -1019,7 +904,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         y = DrawToggleRow(L.Get("vsync"), ref _sVsync, x, y, w, a,
             v => { QualitySettings.vSyncCount = v ? 1 : 0; var gs = GameSettings.Instance; if (gs != null) gs.VSync = v; });
 
-        // Quality
         var qNames = _qualityNames;
         y = DrawSelectRow(L.Get("quality"), qNames, ref _sQuality, x, y, w, a,
             v => {
@@ -1028,7 +912,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
                 var gs = GameSettings.Instance; if (gs != null) gs.QualityLevel = v;
             });
 
-        // DLSS / Anti-Aliasing
         if (_dlssOk)
         {
             var dlssNames = DlssNames;
@@ -1047,14 +930,13 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
         else
         {
-            // DLSS not supported — show TAA as the active anti-aliasing
+            // DLSS not available on this hardware, TAA is active
             var stSec2 = S(_stLight, Sz(0.013f), ColA(CText60, a));
             GUI.Label(new Rect(x, y, w, Sz(0.025f)), L.Get("aa_taa_active"), stSec2);
             y += Sz(0.035f);
         }
 
-        // Effects toggles
-        y += Sz(0.015f); // spacer
+        y += Sz(0.015f);
         var stSec = S(_stLight, Sz(0.013f), ColA(CText30, a));
         GUI.Label(new Rect(x, y, w, Sz(0.025f)), L.Get("postprocessing"), stSec);
         y += Sz(0.03f);
@@ -1072,7 +954,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         y = DrawToggleRow(L.Get("motionblur"), ref _sMotionBlur, x, y, w, a,
             v => { var gs = GameSettings.Instance; if (gs != null) { gs.MotionBlur = v; gs.ApplyEffects(); } });
 
-        // FPS Limit
         if (_fpsNames == null) RefreshLocalizedArrays();
         var fpsNames = _fpsNames;
         y = DrawSelectRow(L.Get("fps_limit"), fpsNames, ref _sFpsLimit, x, y, w, a,
@@ -1081,7 +962,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return y;
     }
 
-    // ── CONTROLS TAB ──
     private float DrawControlsTab(float a, float x, float y, float w)
     {
         y = DrawSliderRow(L.Get("mouse_sensitivity"), ref _sSens, x, y, w, a,
@@ -1097,7 +977,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return y;
     }
 
-    // ── ACCESSIBILITY TAB ──
+    // TODO: add font size preview so players can see the subtitle size change live
     private string[] _localeNames;
 
     private float DrawAccessibilityTab(float a, float x, float y, float w)
@@ -1107,12 +987,11 @@ public class DemagnetizedMainMenu : MonoBehaviour
         if (count == 0) { _localeNames = new[] { "English" }; count = 1; }
         if (_sLang >= count) _sLang = 0;
 
-        // Label
         var stL = S(_stBold, Sz(0.014f), ColA(CText, a));
         GUI.Label(new Rect(x, y, w, Sz(0.025f)), L.Get("language"), stL);
         y += Sz(0.030f);
 
-        // Grid: 4 columns, premium card style
+        // 4-column grid of language buttons
         int cols = 4;
         float gap = Sz(0.004f);
         float btnW = (w - gap * (cols - 1)) / cols;
@@ -1129,7 +1008,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             bool sel = (i == _sLang);
             bool hov = br.Contains(Event.current.mousePosition);
 
-            // Selected: amber fill + top accent
             if (sel)
             {
                 GUI.color = ColA(CAmber, a * 0.12f);
@@ -1143,12 +1021,10 @@ public class DemagnetizedMainMenu : MonoBehaviour
                 GUI.DrawTexture(br, MenuStyles.SolidTexture);
             }
 
-            // Subtle bottom border only (clean look)
             GUI.color = sel ? ColA(CAmber, a * 0.3f) : ColA(CText, a * (hov ? 0.12f : 0.06f));
             GUI.DrawTexture(new Rect(bx, by + btnH - 1, btnW, 1), MenuStyles.SolidTexture);
             GUI.color = Color.white;
 
-            // Text
             Color tc = sel ? ColA(CAmber, a) : hov ? ColA(CText, a * 0.9f) : ColA(CText, a * 0.5f);
             var stB = S(sel ? _stBold : _stBody, Sz(0.0105f), tc, TextAnchor.MiddleCenter);
             GUI.Label(br, _localeNames[i], stB);
@@ -1174,17 +1050,10 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return y;
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: CREDITS ─────────────────────────────
-
-    #region Credits
-
     private void DrawCreditsPanel(float a, float sl)
     {
         float w = Screen.width, h = Screen.height;
 
-        // Overlay
         GUI.color = new Color(0, 0, 0, 0.7f * a);
         GUI.DrawTexture(new Rect(0, 0, w, h), MenuStyles.SolidTexture);
         GUI.color = Color.white;
@@ -1192,7 +1061,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float cx = w * 0.5f;
         float topY = _barH + h * 0.08f + sl;
 
-        // Title
         var stT = S(_stTitle, Sz(0.05f), ColA(Color.white, a), TextAnchor.MiddleCenter);
         GUI.Label(new Rect(0, topY, w, Sz(0.07f)), L.Get("liner_notes"), stT);
 
@@ -1200,7 +1068,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         stSub.fontStyle = FontStyle.Italic;
         GUI.Label(new Rect(0, topY + Sz(0.065f), w, Sz(0.025f)), L.Get("liner_notes_subtitle"), stSub);
 
-        // Credits content (auto-scroll)
+        // auto-scrolling credits, pauses if mouse is inside
         float scrollY = topY + Sz(0.12f);
         float viewH = h - scrollY - _barH - h * 0.08f;
         Rect view = new Rect(w * 0.2f, scrollY, w * 0.6f, viewH);
@@ -1245,7 +1113,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
 
         GUI.EndScrollView();
 
-        // Back button
         float backY = h - _barH - h * 0.06f;
         var backR = new Rect(w * 0.5f - 60, backY, 120, Sz(0.035f));
         bool bH = backR.Contains(Event.current.mousePosition);
@@ -1259,31 +1126,22 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: CONFIRM DIALOGS ─────────────────────────────
-
-    #region Confirm Dialogs
-
     private void DrawConfirm(float a, float sl, bool isNewGame)
     {
         float w = Screen.width, h = Screen.height;
 
-        // Overlay
         GUI.color = new Color(0, 0, 0, 0.75f * a);
         GUI.DrawTexture(new Rect(0, 0, w, h), MenuStyles.SolidTexture);
         GUI.color = Color.white;
 
         float cy = h * 0.38f + sl;
 
-        // Message
         string msg = isNewGame
             ? L.Get("confirm_new_recording")
             : L.Get("confirm_eject");
         var stMsg = S(_stBody, Sz(0.020f), ColA(CText, a), TextAnchor.MiddleCenter);
         GUI.Label(new Rect(0, cy, w, Sz(0.06f)), msg, stMsg);
 
-        // Warning (new game only)
         if (isNewGame)
         {
             float pulse = Mathf.Sin(_t * 3f) * 0.2f + 0.8f;
@@ -1291,7 +1149,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.Label(new Rect(0, cy + Sz(0.07f), w, Sz(0.03f)), L.Get("progress_lost_warning"), stWarn);
         }
 
-        // Buttons
         float btnY = cy + (isNewGame ? Sz(0.14f) : Sz(0.09f));
         float btnW = 160f;
         float gap = 40f;
@@ -1302,14 +1159,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
         string cancelTxt = L.Get("btn_cancel");
         string actionTxt = isNewGame ? L.Get("btn_erase_record") : L.Get("eject");
 
-        // Cancel button
         DrawConfirmButton(new Rect(bx0, btnY, btnW, btnH), cancelTxt, _confirmBtn == 0, false, a, () =>
         {
             PlaySFX(sfxBack);
             GoTo(MenuPanel.MainMenu);
         });
 
-        // Action button
         DrawConfirmButton(new Rect(bx1, btnY, btnW, btnH), actionTxt, _confirmBtn == 1, isNewGame, a, () =>
         {
             PlaySFX(sfxSelect);
@@ -1330,7 +1185,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         var st = S(_stBold, Sz(0.016f), ColA(c, a), TextAnchor.MiddleCenter);
         GUI.Label(r, text, st);
 
-        // Underline
         if (sel || hov)
         {
             GUI.color = ColA(danger ? CDanger : CAmber, a * 0.6f);
@@ -1345,12 +1199,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: VHS EFFECTS ─────────────────────────────
-
-    #region VHS Effects
-
     private void UpdateVHS(float dt)
     {
         _scanY += dt * (Screen.height / 14f);
@@ -1358,7 +1206,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
 
         _vigBreath += dt;
 
-        // Glitch
         _glitchCD -= dt;
         if (_glitchCD <= 0f)
         {
@@ -1372,7 +1219,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
             if (_glitchDur <= 0f) _glitchOn = false;
         }
 
-        // Idle glitch
+        // extra glitch burst after long idle
         if (_idleTime > 25f)
         {
             _glitchOn = true;
@@ -1380,7 +1227,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             _idleTime = 0f;
         }
 
-        // REC dropout
         _recDropCD -= dt;
         if (_recDropCD <= 0f)
         {
@@ -1389,8 +1235,8 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
         if (!_recShow)
         {
-            _glitchDur -= dt; // reuse
-            if (_recDropCD > 17f) _recShow = true; // show again after brief dropout
+            _glitchDur -= dt;
+            if (_recDropCD > 17f) _recShow = true;
         }
         _recShow = _recDropCD > 0.3f || _recDropCD < 0f;
     }
@@ -1399,10 +1245,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
     {
         float w = Screen.width, h = Screen.height;
 
-        // Film grain
         MenuStyles.DrawFilmGrain(new Rect(0, 0, w, h), _t, 0.28f);
 
-        // Scanline sweep (single line)
+        // single scanline sweep
         float scanPct = (_scanY / h);
         if (scanPct > 0.85f && scanPct < 0.95f)
         {
@@ -1411,14 +1256,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.color = Color.white;
         }
 
-        // Vignette (breathing)
-        float vigA = 0.85f + Mathf.Sin(_vigBreath * 0.785f) * 0.15f; // 8s period, range 0.7-1.0
+        // breathing vignette (8s period)
+        float vigA = 0.85f + Mathf.Sin(_vigBreath * 0.785f) * 0.15f;
         DrawVignette(vigA);
 
-        // Particles
         DrawParticles();
 
-        // Glitch (chromatic aberration burst)
         if (_glitchOn)
         {
             float ga = 0.15f;
@@ -1436,19 +1279,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
         MenuStyles.DrawVignette(Screen.width, Screen.height, strength);
     }
 
-    #endregion
-
-    // ───────────────────────────── DRAW: HUD ─────────────────────────────
-
-    #region HUD
-
     private void DrawHUD(float a)
     {
         float w = Screen.width, h = Screen.height;
         float mx = w * 0.025f;
         float my = _barH + h * 0.02f;
 
-        // Top-left: REC dot + timestamp
         if (_recShow)
         {
             bool blink = Mathf.Sin(_t * 4f) > 0f;
@@ -1465,29 +1301,20 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.Label(new Rect(mx + 14, my, 200, 16), _cachedRecStr, stR);
         }
 
-        // Top-right: Chapter
         var stCh = S(_stHud, Sz(0.012f), ColA(CText30, a * 0.5f), TextAnchor.MiddleRight);
         GUI.Label(new Rect(w - 200 - mx, my, 200, 16), L.Get("hud_chapter") + " II", stCh);
         var stChN = S(_stHud, Sz(0.011f), ColA(CText15, a * 0.4f), TextAnchor.MiddleRight);
         GUI.Label(new Rect(w - 200 - mx, my + 16, 200, 14), L.Get("hud_ch2_name"), stChN);
 
-        // Bottom-left: Controls hint
         float by = h - _barH - h * 0.04f;
         string hint = MenuInput.GetNavigationHint();
         var stH = S(_stHud, Sz(0.011f), ColA(CText30, a * 0.4f));
         GUI.Label(new Rect(mx, by, w * 0.4f, 16), hint, stH);
 
-        // Bottom-right: SCENE dots
         float drx = w - mx - 80;
         var stSc = S(_stHud, Sz(0.010f), ColA(CText15, a * 0.3f), TextAnchor.MiddleRight);
         GUI.Label(new Rect(drx, by, 80, 16), L.Get("hud_scene") + " \u2022\u2022\u2022", stSc);
     }
-
-    #endregion
-
-    // ───────────────────────────── DRAW: CINEMATIC BARS ─────────────────────────────
-
-    #region Cinematic Bars
 
     private void DrawBars()
     {
@@ -1496,12 +1323,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.DrawTexture(new Rect(0, Screen.height - _barH, Screen.width, _barH), MenuStyles.SolidTexture);
         GUI.color = Color.white;
     }
-
-    #endregion
-
-    // ───────────────────────────── CUSTOM WIDGETS ─────────────────────────────
-
-    #region Widgets
 
     private float DrawSliderRow(string label, ref float value, float x, float y, float w, float a,
         Action<float> onChange, float minVal = 0f, float maxVal = 1f, string fmt = null)
@@ -1513,26 +1334,21 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float valX = sliderX + sliderW + 10;
         float valW = w * 0.15f;
 
-        // Label
         var stL = S(_stBold, Sz(0.015f), ColA(CText, a));
         GUI.Label(new Rect(x, y, labelW, rowH), label, stL);
 
-        // Value text
         float displayVal = Mathf.Lerp(minVal, maxVal, value);
         string valStr = fmt == "0" ? $"{displayVal:F0}" : $"{Mathf.RoundToInt(value * 100)}%";
         var stV = S(_stBody, Sz(0.014f), ColA(CText60, a), TextAnchor.MiddleRight);
         GUI.Label(new Rect(valX, y, valW, rowH), valStr, stV);
 
-        // Track
         float trackY = y + rowH * 0.5f - 1;
         GUI.color = ColA(CText15, a);
         GUI.DrawTexture(new Rect(sliderX, trackY, sliderW, 2), MenuStyles.SolidTexture);
 
-        // Fill
         GUI.color = ColA(CAmber, a * 0.8f);
         GUI.DrawTexture(new Rect(sliderX, trackY, sliderW * value, 2), MenuStyles.SolidTexture);
 
-        // Thumb
         float thumbR = 6f;
         float thumbX = sliderX + sliderW * value - thumbR;
         float thumbY = trackY - thumbR + 1;
@@ -1540,7 +1356,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.DrawTexture(new Rect(thumbX, thumbY, thumbR * 2, thumbR * 2), MenuStyles.SolidTexture);
         GUI.color = Color.white;
 
-        // Drag interaction
         int sid = _sliderCounter++;
         Rect dragRect = new Rect(sliderX - 10, y, sliderW + 20, rowH);
 
@@ -1575,11 +1390,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float rowH = Sz(0.050f);
         float labelW = w * 0.7f;
 
-        // Label
         var stL = S(_stBold, Sz(0.015f), ColA(CText, a));
         GUI.Label(new Rect(x, y, labelW, rowH), label, stL);
 
-        // Toggle background
         float tW = 36f, tH = 16f;
         float tx = x + w - tW - 10;
         float ty = y + (rowH - tH) * 0.5f;
@@ -1589,14 +1402,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.color = bgCol;
         GUI.DrawTexture(tr, MenuStyles.SolidTexture);
 
-        // Border
         GUI.color = ColA(value ? CAmber : CText30, a * 0.5f);
         GUI.DrawTexture(new Rect(tx, ty, tW, 1), MenuStyles.SolidTexture);
         GUI.DrawTexture(new Rect(tx, ty + tH - 1, tW, 1), MenuStyles.SolidTexture);
         GUI.DrawTexture(new Rect(tx, ty, 1, tH), MenuStyles.SolidTexture);
         GUI.DrawTexture(new Rect(tx + tW - 1, ty, 1, tH), MenuStyles.SolidTexture);
 
-        // Dot
         float dotSz = 10f;
         float dotX = value ? tx + tW - dotSz - 3 : tx + 3;
         float dotY = ty + (tH - dotSz) * 0.5f;
@@ -1604,7 +1415,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.DrawTexture(new Rect(dotX, dotY, dotSz, dotSz), MenuStyles.SolidTexture);
         GUI.color = Color.white;
 
-        // Click
         if (tr.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown)
         {
             value = !value;
@@ -1622,11 +1432,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float rowH = Sz(0.055f);
         float labelW = w * 0.35f;
 
-        // Label
         var stL = S(_stBold, Sz(0.015f), ColA(CText, a));
         GUI.Label(new Rect(x, y, labelW, rowH), label, stL);
 
-        // Buttons
         float bx = x + labelW;
         float bw = w - labelW;
         float gap = 4f;
@@ -1641,14 +1449,12 @@ public class DemagnetizedMainMenu : MonoBehaviour
             bool sel = (i == selected);
             bool hov = br.Contains(Event.current.mousePosition);
 
-            // Background
             if (sel)
             {
                 GUI.color = ColA(CAmber, a * 0.2f);
                 GUI.DrawTexture(br, MenuStyles.SolidTexture);
             }
 
-            // Border
             Color bc = sel ? ColA(CAmber, a * 0.8f) : ColA(CText15, a);
             if (hov && !sel) bc = ColA(CText30, a);
             GUI.color = bc;
@@ -1658,12 +1464,10 @@ public class DemagnetizedMainMenu : MonoBehaviour
             GUI.DrawTexture(new Rect(bxi + btnW - 1, by, 1, btnH), MenuStyles.SolidTexture);
             GUI.color = Color.white;
 
-            // Text
             Color tc = sel ? ColA(CAmber, a) : hov ? ColA(CText, a) : ColA(CText60, a);
             var stB = S(_stBody, Sz(0.012f), tc, TextAnchor.MiddleCenter);
             GUI.Label(br, options[i], stB);
 
-            // Click
             if (hov && Event.current.type == EventType.MouseDown)
             {
                 selected = i;
@@ -1689,7 +1493,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         float navW = w - labelW;
         float arrowW = 30f;
 
-        // Left arrow
         Rect lr = new Rect(navX, y, arrowW, rowH);
         bool lh = lr.Contains(Event.current.mousePosition);
         var stA = S(_stBold, Sz(0.018f), ColA(lh ? CAmber : CText60, a), TextAnchor.MiddleCenter);
@@ -1701,11 +1504,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
             Event.current.Use();
         }
 
-        // Value
         var stVal = S(_stBody, Sz(0.015f), ColA(CText, a), TextAnchor.MiddleCenter);
         GUI.Label(new Rect(navX + arrowW, y, navW - arrowW * 2, rowH), display, stVal);
 
-        // Right arrow
         Rect rr = new Rect(navX + navW - arrowW, y, arrowW, rowH);
         bool rh = rr.Contains(Event.current.mousePosition);
         stA.normal.textColor = ColA(rh ? CAmber : CText60, a);
@@ -1720,23 +1521,16 @@ public class DemagnetizedMainMenu : MonoBehaviour
         return y + rowH;
     }
 
-    #endregion
-
-    // ───────────────────────────── BACKGROUND SCENE ─────────────────────────────
-
-    #region Background Scene
-
     private IEnumerator LoadBgScene()
     {
         _bgLoading = true;
 
-        // Fast path: use baked cubemap instead of loading the full scene (AAA optimization)
+        // fast path: baked cubemap skips loading the whole scene
         if (bakedBackgroundCubemap != null)
         {
             var cam = Camera.main;
             if (cam != null)
             {
-                // HDRP uses Volume-based sky — create a global Volume with HDRI Sky
                 _menuSkyGO = new GameObject("_MenuBakedSky");
                 var volume = _menuSkyGO.AddComponent<Volume>();
                 volume.isGlobal = true;
@@ -1758,20 +1552,18 @@ public class DemagnetizedMainMenu : MonoBehaviour
 
                 volume.profile = profile;
 
-                // HDRP: use HDAdditionalCameraData for clear mode (not Camera.clearFlags)
                 if (cam.TryGetComponent<HDAdditionalCameraData>(out var hdCamData))
                     hdCamData.clearColorMode = HDAdditionalCameraData.ClearColorMode.Sky;
                 else
-                    cam.clearFlags = CameraClearFlags.Skybox; // fallback
+                    cam.clearFlags = CameraClearFlags.Skybox;
 
-                // Point camera at Camera7's original view direction
                 _camRot0 = Quaternion.Euler(bakedCameraRotation);
                 cam.transform.rotation = _camRot0;
-                Debug.Log($"[Menu] Cubemap fast-path active — view rotation: {bakedCameraRotation}");
+                Debug.Log($"[Menu] cubemap fast-path — rotation: {bakedCameraRotation}");
             }
             else
             {
-                Debug.LogWarning("[Menu] Cubemap assigned but Camera.main is null!");
+                Debug.LogWarning("[Menu] cubemap assigned but Camera.main is null");
             }
             _bgLoaded = true;
             _bgLoading = false;
@@ -1780,7 +1572,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
             yield break;
         }
 
-        // Fallback: load full scene (slower, higher memory)
+        // slow path: load the full background scene additively
         var op = SceneManager.LoadSceneAsync(backgroundSceneName, LoadSceneMode.Additive);
         if (op == null) { _bgLoading = false; yield break; }
         op.allowSceneActivation = true;
@@ -1794,8 +1586,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         var scene = SceneManager.GetSceneByName(backgroundSceneName);
         if (!scene.IsValid()) yield break;
 
-        // Disable non-visual components only (cameras, audio, gameplay scripts).
-        // All lights, particles, post-processing stay at full quality.
+        // disable non-visual stuff (cameras, audio, scripts) but keep lights and post-processing
         Camera viewpointSource = null;
         foreach (var root in scene.GetRootGameObjects())
         {
@@ -1823,7 +1614,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
             }
         }
 
-        // Copy viewpoint from the bg camera to MainCamera (camera is already disabled, we only read Transform)
         bool viewpointCopied = false;
         if (viewpointSource != null && mainCam != null)
         {
@@ -1840,10 +1630,9 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
 
 #if UNITY_EDITOR
-        Debug.Log($"[Menu] Background scene '{backgroundSceneName}' loaded. Viewpoint copied: {viewpointCopied}");
+        Debug.Log($"[Menu] background scene '{backgroundSceneName}' loaded. viewpoint copied: {viewpointCopied}");
 #endif
 
-        // Start game scene preload now that bg scene is fully loaded (avoids I/O contention)
         if (_preloader != null && !_preloader.IsReady)
             _preloader.StartPreload();
     }
@@ -1856,12 +1645,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         Quaternion target = _camRot0 * Quaternion.Euler(-my * parallaxAmount, mx * parallaxAmount, 0f);
         _cachedCam.transform.rotation = Quaternion.Slerp(_cachedCam.transform.rotation, target, dt * parallaxSmooth);
     }
-
-    #endregion
-
-    // ───────────────────────────── VIDEO ─────────────────────────────
-
-    #region Video
 
     private void SetupVideo()
     {
@@ -1904,12 +1687,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         if (!_bgLoaded && !_bgLoading) StartCoroutine(LoadBgScene());
     }
 
-    #endregion
-
-    // ───────────────────────────── AUDIO ─────────────────────────────
-
-    #region Audio
-
     private void SetupAudio()
     {
         _ambSrc = gameObject.AddComponent<AudioSource>();
@@ -1936,12 +1713,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         if (clip != null && _sfxSrc != null)
             _sfxSrc.PlayOneShot(clip);
     }
-
-    #endregion
-
-    // ───────────────────────────── SETTINGS LOAD/SAVE ─────────────────────────────
-
-    #region Settings Load/Save
 
     private void LoadSettings()
     {
@@ -1974,7 +1745,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         _sSubSize = 1;
         _sColorblind = 0;
 
-        // FPS limit
         int fps = Application.targetFrameRate;
         _sFpsLimit = fps == 30 ? 0 : fps == 60 ? 1 : fps == 120 ? 2 : 3;
     }
@@ -2058,15 +1828,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         }
     }
 
-    #endregion
-
-    // ───────────────────────────── MENU ACTIONS ─────────────────────────────
-
-    #region Menu Actions
-
-    /// <summary>
-    /// Open settings panel from external callers (e.g. WorkbenchMenuController).
-    /// </summary>
+    // can be called externally e.g. from WorkbenchMenuController
     public void ShowSettings()
     {
         if (_panel != MenuPanel.Settings)
@@ -2101,12 +1863,6 @@ public class DemagnetizedMainMenu : MonoBehaviour
         Application.Quit();
 #endif
     }
-
-    #endregion
-
-    // ───────────────────────────── PARTICLES ─────────────────────────────
-
-    #region Particles
 
     private void InitParticles()
     {
@@ -2147,15 +1903,7 @@ public class DemagnetizedMainMenu : MonoBehaviour
         GUI.color = Color.white;
     }
 
-    #endregion
-
-    // ───────────────────────────── HELPERS ─────────────────────────────
-
-    #region Helpers
-
     private int Sz(float pct) => Mathf.RoundToInt(Screen.height * pct);
 
     private static Color ColA(Color c, float a) => MenuStyles.WithAlpha(c, a);
-
-    #endregion
 }

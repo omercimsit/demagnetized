@@ -1,15 +1,7 @@
 using UnityEngine;
 
-/// <summary>
-/// Generic singleton base for persistent MonoBehaviour managers.
-/// Handles Instance assignment, duplicate destruction, parent detach, and DontDestroyOnLoad.
-///
-/// Usage:
-///   public class MyManager : Singleton&lt;MyManager&gt;
-///   {
-///       protected override void OnAwake() { /* your init code */ }
-///   }
-/// </summary>
+// generic singleton base - inherit from this for any persistent manager
+// usage: public class MyManager : Singleton<MyManager>
 public abstract class Singleton<T> : MonoBehaviour where T : Singleton<T>
 {
     public static T Instance { get; private set; }
@@ -32,7 +24,7 @@ public abstract class Singleton<T> : MonoBehaviour where T : Singleton<T>
         OnAwake();
     }
 
-    /// <summary>Override this instead of Awake for initialization logic.</summary>
+    // override this instead of Awake
     protected virtual void OnAwake() { }
 
     protected virtual void OnDestroy()

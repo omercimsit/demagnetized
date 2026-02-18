@@ -1,60 +1,54 @@
 using UnityEngine;
 
-/// <summary>
-/// DEMAGNETIZED - Shared Menu Styles & Utilities
-/// Centralized styling for MainMenu, PauseMenu, and all UI components
-/// VHS tape, analog, industrial design theme
-///
-/// CANONICAL palette, fonts, and styles used by both DemagnetizedMainMenu and PauseMenuManager.
-/// </summary>
+// shared menu styles and utilities for MainMenu, PauseMenu, and any other UI
+// VHS tape / analog / industrial design theme
+// single source of truth for palette, fonts, and drawing helpers
 public static class MenuStyles
 {
-    // === CANONICAL UI PALETTE (HTML v4 CSS vars — the single source of truth) ===
-    public static readonly Color Amber     = new Color(0.784f, 0.686f, 0.471f, 1f);   // Primary warm accent
-    public static readonly Color TextMain  = new Color(0.863f, 0.839f, 0.784f, 0.92f); // Main body text
-    public static readonly Color TextMid   = new Color(0.824f, 0.804f, 0.765f, 0.55f); // Medium emphasis
-    public static readonly Color TextDim   = new Color(0.784f, 0.765f, 0.725f, 0.25f); // Low emphasis
-    public static readonly Color TextFaint = new Color(0.784f, 0.765f, 0.725f, 0.12f); // Very subtle
-    public static readonly Color Danger    = new Color(0.765f, 0.333f, 0.294f, 1f);    // Warning/danger red
-    public static readonly Color BgDeep    = new Color(0.039f, 0.035f, 0.031f, 1f);    // Deep background
+    // canonical UI palette - match these in any new UI, don't add new colors without good reason
+    public static readonly Color Amber     = new Color(0.784f, 0.686f, 0.471f, 1f);
+    public static readonly Color TextMain  = new Color(0.863f, 0.839f, 0.784f, 0.92f);
+    public static readonly Color TextMid   = new Color(0.824f, 0.804f, 0.765f, 0.55f);
+    public static readonly Color TextDim   = new Color(0.784f, 0.765f, 0.725f, 0.25f);
+    public static readonly Color TextFaint = new Color(0.784f, 0.765f, 0.725f, 0.12f);
+    public static readonly Color Danger    = new Color(0.765f, 0.333f, 0.294f, 1f);
+    public static readonly Color BgDeep    = new Color(0.039f, 0.035f, 0.031f, 1f);
 
-    // === V19 AAA MODERN PALETTE (legacy aliases, kept for existing code) ===
-    public static readonly Color TapeOrange = Amber;                                    // Alias → Amber
-    public static readonly Color RustRed = Danger;                                      // Alias → Danger
-    public static readonly Color MechanicGreen = new Color(0.3f, 0.9f, 0.55f);         // Success green
-    public static readonly Color CrtCyan = new Color(0.4f, 0.85f, 1f);                 // Info cyan
-    public static readonly Color WarmWhite = new Color(0.98f, 0.98f, 0.95f);           // Slightly warm white
-    public static readonly Color DustyGray = new Color(0.5f, 0.5f, 0.55f);             // Muted text
-    public static readonly Color MetalGray = new Color(0.35f, 0.35f, 0.4f);            // Darker gray
-    public static readonly Color DeepBlack = new Color(0.02f, 0.02f, 0.03f);           // Background black
-    public static readonly Color FilmBrown = new Color(0.06f, 0.06f, 0.08f);           // Panel background
-    public static readonly Color DarkFilmBrown = new Color(0.04f, 0.04f, 0.05f);       // Darker panel
+    // legacy aliases - kept so existing code doesn't break
+    public static readonly Color TapeOrange = Amber;
+    public static readonly Color RustRed = Danger;
+    public static readonly Color MechanicGreen = new Color(0.3f, 0.9f, 0.55f);
+    public static readonly Color CrtCyan = new Color(0.4f, 0.85f, 1f);
+    public static readonly Color WarmWhite = new Color(0.98f, 0.98f, 0.95f);
+    public static readonly Color DustyGray = new Color(0.5f, 0.5f, 0.55f);
+    public static readonly Color MetalGray = new Color(0.35f, 0.35f, 0.4f);
+    public static readonly Color DeepBlack = new Color(0.02f, 0.02f, 0.03f);
+    public static readonly Color FilmBrown = new Color(0.06f, 0.06f, 0.08f);
+    public static readonly Color DarkFilmBrown = new Color(0.04f, 0.04f, 0.05f);
 
-    // === CLONE PERSONALITY COLORS ===
+    // clone personality colors - used by clone UI overlays
     public static readonly Color CloneHollow = new Color(0.5f, 0.5f, 0.5f);
     public static readonly Color CloneFearful = new Color(0f, 1f, 1f);
     public static readonly Color CloneBrave = new Color(1f, 0.2f, 0.2f);
 
-    // === UI ACCENT COLORS ===
+    // VHS UI accents
     public static readonly Color VCRBlue = new Color(0.1f, 0.15f, 0.25f);
     public static readonly Color VCRTracking = new Color(1f, 1f, 1f, 0.05f);
     public static readonly Color PhosphorGreen = new Color(0.3f, 0.9f, 0.5f);
     public static readonly Color AmberOSD = new Color(1f, 0.8f, 0.4f);
 
-    // === COLOR HELPER ===
     public static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
 
-    // === SHARED FONTS (locale-aware, reloaded on language change) ===
-    public static Font FontTitle   { get; private set; }  // BebasNeue-Regular (display titles)
-    public static Font FontBold    { get; private set; }  // IBMPlexMono-Bold (headings, buttons)
-    public static Font FontRegular { get; private set; }  // IBMPlexMono-Regular (body text)
-    public static Font FontLight   { get; private set; }  // IBMPlexMono-Light (subtitles, hints)
+    // shared fonts, locale-aware, reloaded when language changes
+    public static Font FontTitle   { get; private set; }  // BebasNeue-Regular
+    public static Font FontBold    { get; private set; }  // IBMPlexMono-Bold
+    public static Font FontRegular { get; private set; }  // IBMPlexMono-Regular
+    public static Font FontLight   { get; private set; }  // IBMPlexMono-Light
     private static bool _fontsLoaded;
     private static bool _localeSubscribed;
     private static FontGroup _currentFontGroup = FontGroup.Latin;
     private static readonly string[] PreferredSystemFonts = { "Segoe UI", "Roboto", "Helvetica Neue" };
 
-    // Font groups mapped to locale codes
     private enum FontGroup { Latin, CJK_JP, CJK_KR, CJK_SC, CJK_TC, Arabic }
 
     private static FontGroup DetectFontGroup()
@@ -71,10 +65,7 @@ public static class MenuStyles
         }
     }
 
-    /// <summary>
-    /// Load shared fonts for the current locale. Re-loads automatically when locale changes.
-    /// Safe to call multiple times (no-op if fonts already loaded for current locale).
-    /// </summary>
+    // load shared fonts for the current locale - safe to call multiple times
     public static void EnsureFonts()
     {
         if (!_localeSubscribed)
@@ -98,12 +89,11 @@ public static class MenuStyles
             default:                LoadLatinFonts();              break;
         }
 
-        // Fallback chain (ensures no null fonts)
+        // fallback chain - make sure nothing ends up null
         if (FontTitle == null) FontTitle = FontBold;
         if (FontLight == null) FontLight = FontRegular;
         if (FontBold == null)
         {
-            // System font fallback
             string[] sysFonts = Font.GetOSInstalledFontNames();
             string best = "Arial";
             foreach (var s in sysFonts)
@@ -129,19 +119,17 @@ public static class MenuStyles
 
     private static void LoadCJKFonts(string familyPrefix)
     {
-        // CJK body fonts (large atlas, dynamic glyph loading)
+        // CJK body fonts use dynamic glyph loading since the atlas would be massive otherwise
         Font cjkRegular = Resources.Load<Font>($"Fonts/CJK/{familyPrefix}-Regular");
         if (cjkRegular != null)
         {
             FontRegular = cjkRegular;
             FontBold    = Resources.Load<Font>($"Fonts/CJK/{familyPrefix}-Bold") ?? cjkRegular;
             FontLight   = cjkRegular;
-            // Title stays Latin (game title "DEMAGNETIZED" is always Latin)
-            FontTitle   = Resources.Load<Font>("Fonts/BebasNeue-Regular");
+            FontTitle   = Resources.Load<Font>("Fonts/BebasNeue-Regular"); // game title stays latin
         }
         else
         {
-            // CJK fonts not yet installed — fall back to Latin
             LoadLatinFonts();
         }
     }
@@ -166,10 +154,10 @@ public static class MenuStyles
     {
         _fontsLoaded = false;
         _stylesValid = false;
-        // Next EnsureStyles() call will reload fonts for the new locale
+        // next EnsureStyles() call will reload fonts for the new locale
     }
 
-    // === SHARED BASE STYLES (cached, recreated on screen resize) ===
+    // shared base styles, cached and recreated on screen resize
     public static GUIStyle StyleTitle { get; private set; }
     public static GUIStyle StyleBody  { get; private set; }
     public static GUIStyle StyleBold  { get; private set; }
@@ -178,14 +166,11 @@ public static class MenuStyles
     private static bool _stylesValid;
     private static int _cachedW, _cachedH;
 
-    /// <summary>
-    /// Ensure base GUIStyles are cached and up-to-date with current screen size.
-    /// Call once per OnGUI frame before using S() or Style* properties.
-    /// </summary>
+    // call once per OnGUI frame before using S() or Style* properties
     public static void EnsureStyles()
     {
         EnsureFonts();
-        ResetStylePool(); // Reset pool each OnGUI pass (Layout + Repaint events)
+        ResetStylePool();
         if (_stylesValid && _cachedW == Screen.width && _cachedH == Screen.height) return;
         _cachedW = Screen.width;
         _cachedH = Screen.height;
@@ -208,23 +193,15 @@ public static class MenuStyles
         _stylesValid = true;
     }
 
-    // === STYLE POOL (Zero-GC per-frame style derivatives) ===
-    // Pool of reusable GUIStyle objects. Reset each OnGUI pass via EnsureStyles().
-    // Eliminates ~50+ heap allocations per frame from new GUIStyle() calls.
+    // zero-GC style pool - eliminates ~50+ heap allocations per frame from new GUIStyle() calls
+    // pool resets each OnGUI pass, never store references across frames
     private static readonly GUIStyle[] _stylePool = new GUIStyle[80];
     private static int _poolIdx;
 
-    /// <summary>
-    /// Reset style pool index. Called at the start of each OnGUI pass.
-    /// </summary>
     public static void ResetStylePool() { _poolIdx = 0; }
 
-    /// <summary>
-    /// Zero-allocation style derivative from a cached base style.
-    /// Returns a pooled GUIStyle with the specified size, color, and alignment.
-    /// Callers may further modify fontStyle, wordWrap, clipping before drawing.
-    /// Pool resets each OnGUI pass — never store references across frames.
-    /// </summary>
+    // returns a pooled GUIStyle with the given size, color, and alignment
+    // callers can modify fontStyle, wordWrap, clipping before drawing
     public static GUIStyle S(GUIStyle baseStyle, int size, Color col, TextAnchor align = TextAnchor.MiddleLeft)
     {
         int i = _poolIdx % _stylePool.Length;
@@ -242,9 +219,9 @@ public static class MenuStyles
         s.clipping = TextClipping.Clip;
         s.richText = false;
         return s;
-    }              
-    
-    // === CACHED TEXTURE ===
+    }
+
+    // 1x1 white texture, cached after first use
     private static Texture2D _solidTex;
     public static Texture2D SolidTexture
     {
@@ -259,7 +236,7 @@ public static class MenuStyles
             return _solidTex;
         }
     }
-    
+
     private static Texture2D _noiseTex;
     public static Texture2D NoiseTexture
     {
@@ -267,12 +244,12 @@ public static class MenuStyles
         {
             if (_noiseTex == null)
             {
-                // Canonical 128x128 noise texture (shared with PauseMenuVHSEffects)
+                // 128x128 noise texture shared with VHS effects
                 _noiseTex = new Texture2D(128, 128, TextureFormat.RGBA32, false);
                 Color32[] pixels = new Color32[128 * 128];
                 for (int i = 0; i < pixels.Length; i++)
                 {
-                    byte n = (byte)Random.Range(0, 52); // 0.2f * 255 ≈ 51
+                    byte n = (byte)Random.Range(0, 52);
                     pixels[i] = new Color32(n, n, n, n);
                 }
                 _noiseTex.SetPixels32(pixels);
@@ -281,12 +258,10 @@ public static class MenuStyles
             return _noiseTex;
         }
     }
-    
+
     private static Texture2D _gradientTex;
-    /// <summary>
-    /// Left-to-right gradient texture (opaque left, transparent right) for panel overlays.
-    /// Cached after first generation (256x1, quintic ease).
-    /// </summary>
+    // left-to-right gradient (opaque left, transparent right) for panel overlays
+    // 256x1 texture with quintic ease, cached after first generation
     public static Texture2D GradientTexture
     {
         get
@@ -319,11 +294,7 @@ public static class MenuStyles
         }
     }
 
-    // === DRAWING UTILITIES ===
-    
-    /// <summary>
-    /// Draw a mechanical rivet/bolt decoration
-    /// </summary>
+    // draw a mechanical rivet/bolt decoration
     public static void DrawRivet(float x, float y, float alpha, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
@@ -332,15 +303,12 @@ public static class MenuStyles
         GUI.color = new Color(DustyGray.r, DustyGray.g, DustyGray.b, 0.4f * alpha);
         GUI.DrawTexture(new Rect(x - 2, y - 2, 4, 4), tex);
     }
-    
-    /// <summary>
-    /// Draw a VHS tape reel decoration with rotation
-    /// </summary>
+
+    // draw a VHS tape reel with rotation
     public static void DrawTapeReel(float cx, float cy, float r, float rotation, float alpha, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
-        
-        // Outer ring
+
         GUI.color = new Color(MetalGray.r, MetalGray.g, MetalGray.b, 0.3f * alpha);
         for (int i = 0; i < 24; i++)
         {
@@ -349,12 +317,10 @@ public static class MenuStyles
             float py = cy + Mathf.Sin(angle) * r;
             GUI.DrawTexture(new Rect(px - 2, py - 2, 4, 4), tex);
         }
-        
-        // Center hub
+
         GUI.color = new Color(DeepBlack.r, DeepBlack.g, DeepBlack.b, 0.5f * alpha);
         GUI.DrawTexture(new Rect(cx - r * 0.3f, cy - r * 0.3f, r * 0.6f, r * 0.6f), tex);
-        
-        // Spokes
+
         GUI.color = new Color(TapeOrange.r, TapeOrange.g, TapeOrange.b, 0.25f * alpha);
         for (int i = 0; i < 3; i++)
         {
@@ -366,26 +332,20 @@ public static class MenuStyles
             DrawLine(px1, py1, px2, py2, 2, tex);
         }
     }
-    
-    /// <summary>
-    /// Draw a line between two points
-    /// </summary>
+
     public static void DrawLine(float x1, float y1, float x2, float y2, float thickness, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
         Vector2 dir = new Vector2(x2 - x1, y2 - y1);
         float len = dir.magnitude;
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-        
+
         Matrix4x4 matrix = GUI.matrix;
         GUIUtility.RotateAroundPivot(angle, new Vector2(x1, y1));
         GUI.DrawTexture(new Rect(x1, y1 - thickness/2, len, thickness), tex);
         GUI.matrix = matrix;
     }
-    
-    /// <summary>
-    /// Draw VHS scanline effect over an area
-    /// </summary>
+
     public static void DrawScanlines(float width, float height, float offset, float alpha, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
@@ -395,43 +355,34 @@ public static class MenuStyles
             GUI.DrawTexture(new Rect(0, y, width, 1), tex);
         }
     }
-    
-    /// <summary>
-    /// Draw corner brackets (film frame style)
-    /// </summary>
+
+    // corner brackets in film frame style
     public static void DrawCornerBrackets(float margin, float size, float thickness, float alpha, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
         float w = Screen.width;
         float h = Screen.height;
-        
+
         GUI.color = new Color(TapeOrange.r, TapeOrange.g, TapeOrange.b, 0.35f * alpha);
-        
-        // Top-left
+
         GUI.DrawTexture(new Rect(margin, margin, size, thickness), tex);
         GUI.DrawTexture(new Rect(margin, margin, thickness, size), tex);
-        
-        // Top-right
+
         GUI.DrawTexture(new Rect(w - margin - size, margin, size, thickness), tex);
         GUI.DrawTexture(new Rect(w - margin - thickness, margin, thickness, size), tex);
-        
-        // Bottom-left
+
         GUI.DrawTexture(new Rect(margin, h - margin - thickness, size, thickness), tex);
         GUI.DrawTexture(new Rect(margin, h - margin - size, thickness, size), tex);
-        
-        // Bottom-right
+
         GUI.DrawTexture(new Rect(w - margin - size, h - margin - thickness, size, thickness), tex);
         GUI.DrawTexture(new Rect(w - margin - thickness, h - margin - size, thickness, size), tex);
     }
-    
-    /// <summary>
-    /// Draw film noise/grain effect
-    /// </summary>
+
     public static void DrawFilmGrain(Rect area, float time, float alpha, Texture2D noiseTex = null)
     {
         noiseTex = noiseTex ?? NoiseTexture;
         if (noiseTex == null) return;
-        
+
         GUI.color = new Color(1f, 1f, 1f, 0.08f * alpha);
         float noiseScale = 3f;
         GUI.DrawTextureWithTexCoords(
@@ -440,28 +391,22 @@ public static class MenuStyles
             new Rect(time * 0.5f, time * 0.3f, noiseScale, noiseScale * (area.height / area.width))
         );
     }
-    
-    /// <summary>
-    /// Draw a horizontal glitch line effect
-    /// </summary>
+
     public static void DrawGlitchLine(float width, float alpha, Texture2D tex = null)
     {
         tex = tex ?? SolidTexture;
         float glitchY = Random.Range(0f, Screen.height);
-        
+
         GUI.color = new Color(TapeOrange.r, TapeOrange.g, TapeOrange.b, 0.1f * alpha);
         GUI.DrawTexture(new Rect(0, glitchY, width, Random.Range(5f, 20f)), tex);
-        
+
         GUI.color = new Color(CrtCyan.r, CrtCyan.g, CrtCyan.b, 0.05f * alpha);
         GUI.DrawTexture(new Rect(Random.Range(-10f, 0f), glitchY + 10, width + 10, Random.Range(2f, 8f)), tex);
     }
 
-    /// <summary>
-    /// Draw scrolling VHS tracking lines/noise
-    /// </summary>
     public static void DrawTrackingLines(float w, float h, float offset, float alpha)
     {
-        alpha *= 0.3f; // Intensity adjustment
+        alpha *= 0.3f;
 
         for (int i = 0; i < 3; i++)
         {
@@ -469,11 +414,9 @@ public static class MenuStyles
             float lineHeight = 2 + Random.Range(0f, 3f);
             float lineAlpha = alpha * (0.5f + Random.Range(0f, 0.5f));
 
-            // Main tracking line
             GUI.color = new Color(VCRTracking.r, VCRTracking.g, VCRTracking.b, lineAlpha);
             GUI.DrawTexture(new Rect(0, lineY, w, lineHeight), SolidTexture);
 
-            // Color fringing
             GUI.color = new Color(CrtCyan.r, CrtCyan.g, CrtCyan.b, lineAlpha * 0.3f);
             GUI.DrawTexture(new Rect(0, lineY - 2, w, 1), SolidTexture);
 
@@ -481,7 +424,7 @@ public static class MenuStyles
             GUI.DrawTexture(new Rect(0, lineY + lineHeight + 1, w, 1), SolidTexture);
         }
 
-        // Jitter
+        // occasional horizontal jitter
         if (Random.value < 0.1f)
         {
             float jitterY = Random.Range(0f, h);
@@ -489,21 +432,17 @@ public static class MenuStyles
             GUI.DrawTexture(new Rect(Random.Range(-5f, 5f), jitterY, w, 1), SolidTexture);
         }
     }
-    
-    /// <summary>
-    /// Draw a small L-shaped corner accent for panels
-    /// </summary>
+
+    // small L-shaped corner accent for panels
     public static void DrawCornerAccent(float x, float y, float size, float alpha)
     {
         GUI.color = new Color(TapeOrange.r, TapeOrange.g, TapeOrange.b, 0.4f * alpha);
         GUI.DrawTexture(new Rect(x, y, size, 2), SolidTexture);
         GUI.DrawTexture(new Rect(x, y, 2, size), SolidTexture);
     }
-    
-    /// <summary>
-    /// Draw dark vignette around screen edges.
-    /// bands = quality (8 = fast, 15 = smooth). edgeFraction = how deep into the screen.
-    /// </summary>
+
+    // dark vignette around screen edges
+    // bands = quality (8 = fast, 15 = smooth), edgeFraction = how deep into the screen
     public static void DrawVignette(float w, float h, float strength = 1f, int bands = 8, float edgeFraction = 0.22f)
     {
         float edgeW = w * edgeFraction;
@@ -523,43 +462,31 @@ public static class MenuStyles
         GUI.color = Color.white;
     }
 
-    // === ANIMATION HELPERS ===
-    
-    /// <summary>
-    /// Smooth step interpolation (ease in-out)
-    /// </summary>
+    // smooth step (ease in-out)
     public static float SmoothStep(float from, float to, float t)
     {
         t = Mathf.Clamp01(t);
         t = t * t * (3f - 2f * t);
         return Mathf.Lerp(from, to, t);
     }
-    
-    /// <summary>
-    /// Ease out interpolation (decelerate)
-    /// </summary>
+
+    // ease out (decelerate)
     public static float EaseOut(float from, float to, float t)
     {
         t = Mathf.Clamp01(t);
         t = 1f - (1f - t) * (1f - t);
         return Mathf.Lerp(from, to, t);
     }
-    
-    /// <summary>
-    /// Ease in interpolation (accelerate)
-    /// </summary>
+
+    // ease in (accelerate)
     public static float EaseIn(float from, float to, float t)
     {
         t = Mathf.Clamp01(t);
         t = t * t;
         return Mathf.Lerp(from, to, t);
     }
-    
-    // === CLEANUP ===
-    
-    /// <summary>
-    /// Call this when the application quits to clean up cached textures
-    /// </summary>
+
+    // call on application quit to clean up cached textures
     public static void Cleanup()
     {
         if (_solidTex != null)

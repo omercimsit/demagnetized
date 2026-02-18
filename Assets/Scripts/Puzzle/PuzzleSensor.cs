@@ -10,10 +10,8 @@ namespace CloneGame.Puzzle
         WantsLight
     }
 
-    /// <summary>
-    /// Puzzle sensor that detects if it's in shadow or light.
-    /// Uses raycasting to determine if light is blocked by clone.
-    /// </summary>
+    // sensor that checks if it's in shadow or direct light
+    // uses raycasting to detect if a clone is blocking the light source
     public class PuzzleSensor : MonoBehaviour
     {
         [Header("Sensor Configuration")]
@@ -39,10 +37,10 @@ namespace CloneGame.Puzzle
         private bool _isActive = false;
         private bool _isInShadow = false;
         private MaterialPropertyBlock _propBlock;
-        private Light _cachedLight; // Cached to avoid per-frame GetComponent<Light>
-        private static readonly RaycastHit[] _hitBuffer = new RaycastHit[16]; // NonAlloc buffer
+        private Light _cachedLight;
+        private static readonly RaycastHit[] _hitBuffer = new RaycastHit[16];
 
-        // Pre-allocated raycast offsets (avoids per-frame array creation)
+        // pre-allocated so we don't create a new array every frame
         private static readonly Vector3[] _rayOffsets = new Vector3[]
         {
             Vector3.zero,
@@ -67,7 +65,7 @@ namespace CloneGame.Puzzle
                 GameObject lightObj = GameObject.Find("SpotLight_Rotating");
                 if (lightObj != null) _lightSource = lightObj.transform;
             }
-            // Cache Light component once
+            // cache this once rather than calling GetComponent every frame
             if (_lightSource != null)
                 _cachedLight = _lightSource.GetComponent<Light>();
             UpdateVisuals();
@@ -87,7 +85,7 @@ namespace CloneGame.Puzzle
             Vector3 direction = lightPos - sensorPos;
             float distance = direction.magnitude;
 
-            // Multiple raycasts using pre-allocated offset array (zero GC)
+            // cast a few rays with small offsets to reduce false negatives
             foreach (var offset in _rayOffsets)
             {
                 Vector3 rayStart = sensorPos + offset;
@@ -95,7 +93,6 @@ namespace CloneGame.Puzzle
                 {
                     if (hit.transform != _lightSource && hit.transform.root != _lightSource.root)
                     {
-                        // Any non-trigger collider blocking light = shadow
                         if (hit.collider != null && !hit.collider.isTrigger)
                         {
                             _isInShadow = true;
@@ -105,7 +102,7 @@ namespace CloneGame.Puzzle
                 }
             }
 
-            // Use RaycastNonAlloc to avoid per-frame array allocation
+            // nonalloc version to avoid per-frame array garbage
             int hitCount = Physics.RaycastNonAlloc(sensorPos, direction.normalized, _hitBuffer, distance, _shadowCasterMask);
             for (int i = 0; i < hitCount; i++)
             {
@@ -119,7 +116,7 @@ namespace CloneGame.Puzzle
                 }
             }
 
-            // Use cached Light component (avoid per-frame GetComponent)
+            // also check if sensor is outside the spotlight cone or range
             if (_cachedLight != null && _cachedLight.type == LightType.Spot)
             {
                 Vector3 lightForward = _lightSource.forward;

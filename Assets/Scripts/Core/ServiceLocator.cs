@@ -3,10 +3,8 @@ using CloneSystem;
 using System;
 using System.Collections.Generic;
 
-/// <summary>
-/// Central service entrypoint used by gameplay and UI systems.
-/// New code should resolve dependencies from here instead of ad-hoc scene searches.
-/// </summary>
+// global access point for all the main systems, instead of doing FindObjectOfType everywhere
+// TODO: might want to split this into multiple locators if the project gets bigger
 public class ServiceLocator : MonoBehaviour
 {
     private static ServiceLocator _instance;
@@ -42,6 +40,7 @@ public class ServiceLocator : MonoBehaviour
     [SerializeField] private LocalizationManager localizationManager;
     [SerializeField] private AudioManager audioManager;
 
+    // these flags stop us from doing FindFirstObjectByType every frame, which is slow
     private bool _aaaCloneSystemSearched;
     private bool _playerControllerSearched;
     private bool _mainCameraSearched;
@@ -50,6 +49,7 @@ public class ServiceLocator : MonoBehaviour
     private bool _localizationSearched;
     private bool _audioManagerSearched;
 
+    // FIXME: this cache doesn't get invalidated when objects are destroyed mid-scene
     private readonly Dictionary<Type, Component> _serviceCache = new Dictionary<Type, Component>();
 
     public AAACloneSystem CloneSystem
@@ -95,6 +95,7 @@ public class ServiceLocator : MonoBehaviour
             if (mainCamera == null && !_mainCameraSearched)
             {
                 mainCamera = Camera.main;
+                // Camera.main can return null if the camera isn't tagged properly
                 if (mainCamera == null)
                     mainCamera = FindFirstObjectByType<Camera>();
                 _mainCameraSearched = true;
@@ -155,6 +156,7 @@ public class ServiceLocator : MonoBehaviour
         }
     }
 
+    // generic fallback for anything not explicitly wired up above
     public T Resolve<T>() where T : Component
     {
         if (_serviceCache.TryGetValue(typeof(T), out var cached) && cached != null)
@@ -185,11 +187,12 @@ public class ServiceLocator : MonoBehaviour
             transform.SetParent(null);
         DontDestroyOnLoad(gameObject);
 
-        // Ensure foundational services before first lookup pass.
+        // make sure core stuff exists before we start looking for things
         GameBootstrap.EnsureCoreServices();
         AutoFindReferences();
     }
 
+    // not sure if doing all this in Awake is ideal but it seems to work fine
     private void AutoFindReferences()
     {
         if (aaaCloneSystem == null)
@@ -227,6 +230,8 @@ public class ServiceLocator : MonoBehaviour
 #endif
     }
 
+    // call this after scene loads if references went stale
+    // TODO: hook this up to SceneManager.sceneLoaded automatically
     public void RefreshReferences()
     {
         _aaaCloneSystemSearched = false;

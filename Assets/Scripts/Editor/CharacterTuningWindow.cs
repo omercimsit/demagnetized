@@ -67,7 +67,7 @@ public class CharacterTuningWindow : EditorWindow
         EditorGUILayout.LabelField("Status: " + (ok ? "All OK" : "MISSING refs - click Refresh"));
         EditorGUILayout.Space(8);
 
-        // ── AIM SOCKET ──
+        // aim socket position
         EditorGUILayout.LabelField("Camera (aim_socket on Head)", EditorStyles.boldLabel);
         if (aimSocket != null)
         {
@@ -87,7 +87,7 @@ public class CharacterTuningWindow : EditorWindow
 
         EditorGUILayout.Space(8);
 
-        // ── CHARACTER CONTROLLER ──
+        // character controller tweaks
         EditorGUILayout.LabelField("Character Controller", EditorStyles.boldLabel);
         if (charController != null)
         {
@@ -124,7 +124,7 @@ public class CharacterTuningWindow : EditorWindow
 
         EditorGUILayout.Space(8);
 
-        // ── PA SETTINGS ──
+        // PA asset slot
         EditorGUILayout.LabelField("Procedural Animation", EditorStyles.boldLabel);
         if (character != null)
         {
@@ -150,7 +150,7 @@ public class CharacterTuningWindow : EditorWindow
 
         EditorGUILayout.Space(8);
 
-        // ── CAMERA SETTINGS ──
+        // camera settings - uses reflection since CharacterCamera might not be in the assembly
         EditorGUILayout.LabelField("CharacterCamera", EditorStyles.boldLabel);
         if (player != null)
         {
@@ -174,7 +174,7 @@ public class CharacterTuningWindow : EditorWindow
 
         EditorGUILayout.Space(8);
 
-        // ── MEASUREMENTS ──
+        // quick bone measurements
         if (animator != null && animator.isHuman)
         {
             EditorGUILayout.LabelField("Measurements", EditorStyles.boldLabel);
@@ -190,6 +190,7 @@ public class CharacterTuningWindow : EditorWindow
         if (!string.IsNullOrEmpty(statusMsg))
             EditorGUILayout.HelpBox(statusMsg, MessageType.Info);
 
+        // FIXME: doesn't work in edit mode - need to check Application.isPlaying before saving
         EditorGUI.BeginDisabledGroup(Application.isPlaying);
         if (GUILayout.Button("Save Scene", GUILayout.Height(28)))
         {

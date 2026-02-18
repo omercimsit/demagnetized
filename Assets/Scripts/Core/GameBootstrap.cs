@@ -1,10 +1,8 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-/// <summary>
-/// Ensures critical managers exist and are reused across scene transitions.
-/// This replaces ad-hoc manager creation in feature scripts.
-/// </summary>
+// makes sure all the important managers exist before anything else runs
+// TODO: might want to load these from a prefab instead of creating manually
 [DefaultExecutionOrder(-10000)]
 public class GameBootstrap : MonoBehaviour
 {
@@ -29,12 +27,12 @@ public class GameBootstrap : MonoBehaviour
         DontDestroyOnLoad(go);
         go.AddComponent<GameBootstrap>();
 
-        // Make sure core services exist before scene behaviours query them.
+        // core services need to exist before scene behaviours query them
         EnsureCoreServices();
 
         _initialized = true;
 
-        // Keep references fresh when scene changes.
+        // refresh refs on scene change
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
     }
 

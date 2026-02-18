@@ -3,10 +3,9 @@ using System.Collections.Generic;
 
 namespace Demagnetized.Cinematic
 {
-    /// <summary>
-    /// Flooding black liquid that chases through the corridor.
-    /// Moves independently and reacts to walls with wave-like motion.
-    /// </summary>
+    // The black flooding liquid that chases you down the corridor.
+    // Moves on its own and reacts to walls with a wave-like bounce.
+    // TODO: add a speed ramp based on player health or story events
     public class ChasingShadow : MonoBehaviour
     {
         [Header("Movement")]
@@ -32,7 +31,8 @@ namespace Demagnetized.Cinematic
         [SerializeField] private float _scalePulseAmount = 0.3f;
         [SerializeField] private float _scalePulseSpeed = 4f;
 
-        [Header("Tendrils (Child Objects)")]
+        // child objects that act as reaching tendrils
+        [Header("Tendrils")]
         [SerializeField] private bool _createTendrils = true;
         [SerializeField] private int _tendrilCount = 5;
         [SerializeField] private float _tendrilSpread = 3f;
@@ -52,14 +52,10 @@ namespace Demagnetized.Cinematic
             _timeOffset = Random.Range(0f, 10f);
 
             if (_cameraTransform == null && Camera.main != null)
-            {
                 _cameraTransform = Camera.main.transform;
-            }
 
             if (_createTendrils)
-            {
                 CreateTendrils();
-            }
         }
 
         private void Update()
@@ -68,16 +64,12 @@ namespace Demagnetized.Cinematic
             ApplyWaveMotion();
 
             if (_reactToWalls)
-            {
                 DetectAndReactToWalls();
-            }
 
             ApplyScalePulse();
 
             if (_lookAtCamera && _cameraTransform != null)
-            {
                 LookAtCamera();
-            }
 
             UpdateTendrils();
         }
@@ -98,7 +90,7 @@ namespace Demagnetized.Cinematic
             pos.y = _floorY + waveY + Mathf.Abs(waveY) * 0.5f;
             pos.x += waveX * Time.deltaTime;
 
-            // Decay wall reaction over time
+            // wall reaction decays naturally over time
             pos += _wallReactionOffset;
             _wallReactionOffset = Vector3.Lerp(_wallReactionOffset, Vector3.zero, _wallReactionDecay * Time.deltaTime);
 
@@ -112,7 +104,6 @@ namespace Demagnetized.Cinematic
 
             RaycastHit hit;
 
-            // Right wall
             if (Physics.Raycast(transform.position, rightDir, out hit, _wallDetectionRange, _wallLayers))
             {
                 float proximity = 1f - (hit.distance / _wallDetectionRange);
@@ -120,7 +111,6 @@ namespace Demagnetized.Cinematic
                 _wallReactionOffset += leftDir * proximity * _wallBounceIntensity * 0.5f * Time.deltaTime;
             }
 
-            // Left wall
             if (Physics.Raycast(transform.position, leftDir, out hit, _wallDetectionRange, _wallLayers))
             {
                 float proximity = 1f - (hit.distance / _wallDetectionRange);
@@ -128,7 +118,7 @@ namespace Demagnetized.Cinematic
                 _wallReactionOffset += rightDir * proximity * _wallBounceIntensity * 0.5f * Time.deltaTime;
             }
 
-            // Ceiling
+            // ceiling check keeps it from going too high in narrow sections
             if (Physics.Raycast(transform.position, Vector3.up, out hit, _wallDetectionRange * 0.5f, _wallLayers))
             {
                 float proximity = 1f - (hit.distance / (_wallDetectionRange * 0.5f));
@@ -156,9 +146,7 @@ namespace Demagnetized.Cinematic
             lookDir.y = 0;
 
             if (lookDir != Vector3.zero)
-            {
                 transform.rotation = Quaternion.LookRotation(-lookDir);
-            }
         }
 
         private void CreateTendrils()
@@ -197,7 +185,7 @@ namespace Demagnetized.Cinematic
                 Transform tendril = _tendrils[i];
                 if (tendril == null) continue;
 
-                // Each tendril oscillates at a different phase
+                // each tendril is offset in phase so they don't all move in sync
                 float phase = i * _tendrilWaveOffset;
                 float waveY = Mathf.Sin((time + phase) * _waveFrequency * 1.5f) * (_waveAmplitude * 0.5f);
                 float waveX = Mathf.Sin((time + phase) * _sideWaveFrequency * 1.2f) * 0.3f;
@@ -207,6 +195,7 @@ namespace Demagnetized.Cinematic
                 localPos.x += waveX * Time.deltaTime;
                 tendril.localPosition = localPos;
 
+                // FIXME: Random.Range in Update causes GC. Should pre-bake random scale offsets
                 float scalePulse = 1f + Mathf.Sin((time + phase) * _scalePulseSpeed * 1.5f) * 0.2f;
                 tendril.localScale = Vector3.one * Random.Range(0.3f, 0.6f) * scalePulse;
             }

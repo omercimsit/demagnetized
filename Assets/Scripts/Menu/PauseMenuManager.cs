@@ -3,26 +3,13 @@ using UnityEngine.SceneManagement;
 // CAS_Demo.Scripts.FPS - resolved at runtime via reflection
 using Menu.Pause;
 
-// Color aliases from MenuStyles for cleaner code
+// color aliases from MenuStyles for cleaner code
 using S = MenuStyles;
 
-/// <summary>
-/// DEMAGNETIZED - Modular Pause Menu Controller (v2)
-/// 
-/// REFACTORED ARCHITECTURE:
-/// - PauseMenuState: Centralized state management
-/// - PauseMenuVHSEffects: VHS visual effects
-/// - PauseMenuPanelRenderer: Panel drawing
-/// - PauseMenuButtonRenderer: Button drawing
-/// - PauseMenuSettingsUI: Settings tabs (separate file)
-/// 
-/// This controller now acts as an orchestrator, delegating
-/// rendering to specialized modules for better maintainability.
-/// </summary>
+// modular pause menu controller
+// PauseMenuState handles centralized state, individual modules handle rendering
 public class PauseMenuManager : MonoBehaviour
 {
-    #region Serialized Fields
-
     [Header("Settings")]
     [SerializeField] private bool canOpenMenu = true;
     [SerializeField] private string mainMenuSceneName = "DemagnetizedMainMenu";
@@ -43,25 +30,18 @@ public class PauseMenuManager : MonoBehaviour
     [SerializeField] [Range(0f, 1f)] private float pauseMusicVolume = 0.25f;
     [SerializeField] private float musicFadeSpeed = 2f;
 
-    #endregion
-
-    #region Private Fields
-
-    // Static data (allocated once, not per-frame)
+    // static data allocated once
     private string[] _localeNames;
     private static readonly string[] DlssLabels = { "TAA", "DLAA", "QUAL", "BAL", "PERF", "ULTRA" };
 
-    // Components
     private AudioSource _sfxSource;
     private AudioSource _musicSource;
 
-    // State reference
     private PauseMenuState State => PauseMenuState.Instance;
 
-    // Cached values
     private float _savedTimeScale = 1f;
 
-    // Settings values (loaded from GameSettings)
+    // settings values loaded from GameSettings
     private int _currentLanguage;
     private float _masterVolume = 1f;
     private float _musicVolume = 0.5f;
@@ -73,24 +53,22 @@ public class PauseMenuManager : MonoBehaviour
     private bool _isRTX40OrNewer;
     private float _dlssSharpness = 0.85f;
     private int _currentQualityLevel;
-    
-    // Effects toggles
+
     private bool _bloom = true, _filmGrain = true, _vignette = true;
     private bool _motionBlur, _ssao = true, _volumetricFog = true;
 
-    // Display settings
     private bool _fullScreen = true;
     private bool _vSync = true;
     private int _currentResolutionIndex;
     private Resolution[] _availableResolutions;
 
-    // Cached scene references (avoid FindObjectsByType per call)
+    // cached scene references - avoid FindObjectsByType per call
     private MonoBehaviour _cachedFPSController;
     private bool _fpsControllerSearched;
     private UnityEngine.Rendering.Volume[] _cachedVolumes;
     private System.Reflection.MethodInfo _updateSensitivityMethod;
 
-    // Cached display strings (avoid per-frame GC allocations in OnGUI)
+    // cached display strings - avoid per-frame GC allocations in OnGUI
     private string[] _cachedResolutionStrings;
     private string _cachedSensStr;
     private float _lastCachedSens = -1f;
@@ -109,25 +87,20 @@ public class PauseMenuManager : MonoBehaviour
     private float _fpsUpdateTimer;
     private string _cachedGpuName;
 
-    #endregion
-
-    #region Lifecycle
-
-    // --- INPUT STATE ---
     private enum InputDevice { Keyboard, Mouse }
     private InputDevice _lastInputDevice = InputDevice.Keyboard;
     private Vector3 _lastMousePos;
 
     private void Awake()
     {
-        // CRITICAL INIT
-        State.Reset(); // <--- CRITICAL FIX: Ensure clean state on reload
+        // CRITICAL: ensure clean state on scene reload
+        State.Reset();
 
         Time.timeScale = 1f;
         AudioListener.pause = false;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        
+
         LoadFonts();
         InitializeResolutions();
         EnsureLocalization();
@@ -137,8 +110,8 @@ public class PauseMenuManager : MonoBehaviour
     {
         gameObject.name = "General [THE MONOLITH UI]";
         GameBootstrap.EnsureCoreServices();
-        
-        // Setup audio
+
+        // setup audio - handle the case where an AudioSource already exists
         if (GetComponent<AudioSource>() == null)
         {
             _sfxSource = gameObject.AddComponent<AudioSource>();
@@ -151,16 +124,16 @@ public class PauseMenuManager : MonoBehaviour
         }
         else
         {
-             _sfxSource = GetComponent<AudioSource>();
-             if (_sfxSource == null) _sfxSource = gameObject.AddComponent<AudioSource>();
+            _sfxSource = GetComponent<AudioSource>();
+            if (_sfxSource == null) _sfxSource = gameObject.AddComponent<AudioSource>();
         }
 
         if (_musicSource == null)
         {
-             _musicSource = gameObject.AddComponent<AudioSource>();
-             _musicSource.playOnAwake = false;
-             _musicSource.loop = true;
-             _musicSource.volume = 0f;
+            _musicSource = gameObject.AddComponent<AudioSource>();
+            _musicSource.playOnAwake = false;
+            _musicSource.loop = true;
+            _musicSource.volume = 0f;
         }
 
         if (pauseMenuMusic == null)
@@ -172,7 +145,6 @@ public class PauseMenuManager : MonoBehaviour
         CheckDLSS();
         Loc.OnLocaleChanged += () => { _localeNames = Loc.GetLocaleNames(); _currentLanguage = Loc.GetCurrentLocaleIndex(); };
 
-        // FORCE GAMEPLAY STATE
         ResumeGame();
     }
 
@@ -180,7 +152,7 @@ public class PauseMenuManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        // Destroy dynamically created VolumeProfile to prevent memory leak
+        // destroy the dynamically created VolumeProfile to avoid memory leak
         if (_blurVolume != null && _blurVolume.profile != null)
         {
             var profile = _blurVolume.profile;
@@ -196,40 +168,36 @@ public class PauseMenuManager : MonoBehaviour
 
     private void Update()
     {
-        // 1. Detect Input Device Change
+        // detect input device change
         if ((Input.mousePosition - _lastMousePos).sqrMagnitude > 1.0f)
         {
             _lastInputDevice = InputDevice.Mouse;
             _lastMousePos = Input.mousePosition;
         }
-        
-        // Detect keyboard activity (simple check)
+
         if (Input.anyKeyDown && !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2))
         {
             _lastInputDevice = InputDevice.Keyboard;
         }
 
-        // 2. Execute Deferred Actions
         if (_deferredAction != null)
         {
             _deferredAction.Invoke();
             _deferredAction = null;
         }
 
-        // 3. Main Logic
         HandleInput();
-        
-        // SYNC REMOVED: It was preventing manual changes
-        // Only sync Quality, not DLSS, to avoid fighting with user selection
+
+        // only sync Quality, not DLSS, to avoid fighting with user's manual selection
         if (State.IsSettingsOpen && GraphicsQualityManager.Instance != null)
         {
-             _currentQualityLevel = (int)GraphicsQualityManager.Instance.CurrentPreset;
+            _currentQualityLevel = (int)GraphicsQualityManager.Instance.CurrentPreset;
         }
-        
+
         State.UpdateAnimations(Time.unscaledDeltaTime);
         UpdatePauseMusic();
-        
-        // 4. Cursor Safety
+
+        // cursor safety - make sure it's visible when paused
         if (State.IsPaused && !Cursor.visible)
         {
             Cursor.visible = true;
@@ -237,16 +205,11 @@ public class PauseMenuManager : MonoBehaviour
         }
     }
 
-    #endregion
-
-    #region Input Handling
-
     private void HandleInput()
     {
-        // --- ESC TOGGLE ---
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            // Debounce
+            // debounce to avoid double-triggering
             if (Time.realtimeSinceStartup - State.LastPauseToggleTime < 0.2f) return;
             State.LastPauseToggleTime = Time.realtimeSinceStartup;
 
@@ -264,16 +227,15 @@ public class PauseMenuManager : MonoBehaviour
             }
             else
             {
-                if (canOpenMenu) 
+                if (canOpenMenu)
                     PauseGame();
                 else
                     Debug.LogWarning("[PauseMenu] Cannot open menu! canOpenMenu is false.");
             }
-            return; 
+            return;
         }
 
-        // --- KEYBOARD NAVIGATION ---
-        // Only active if Paused AND using Keyboard
+        // keyboard navigation only when paused and not in settings
         if (State.IsPaused && !State.IsSettingsOpen && _lastInputDevice == InputDevice.Keyboard)
         {
             HandleKeyboardNavigation();
@@ -298,10 +260,6 @@ public class PauseMenuManager : MonoBehaviour
         }
     }
 
-    #endregion
-
-    #region Game State Control
-
     private void PauseGame()
     {
         if (State.IsPaused) return;
@@ -311,7 +269,6 @@ public class PauseMenuManager : MonoBehaviour
         AudioListener.pause = true;
         State.SetPaused(true);
 
-        // Fire events
         GameEvents.InvokeGamePaused(true);
         GameEvents.InvokePauseMenuOpened();
 
@@ -320,7 +277,7 @@ public class PauseMenuManager : MonoBehaviour
         State.SelectedIndex = 0;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        
+
         StartPauseMusic();
         SetBlur(true);
     }
@@ -334,7 +291,6 @@ public class PauseMenuManager : MonoBehaviour
         AudioListener.pause = false;
         State.SetPaused(false);
 
-        // Fire events
         GameEvents.InvokeGamePaused(false);
         GameEvents.InvokePauseMenuClosed();
 
@@ -348,7 +304,7 @@ public class PauseMenuManager : MonoBehaviour
 
     private void LoadFonts()
     {
-        // Use centralized font loading from MenuStyles (shared with DemagnetizedMainMenu)
+        // use centralized font loading from MenuStyles so we're consistent with DemagnetizedMainMenu
         MenuStyles.EnsureFonts();
         if (titleFont == null) titleFont = MenuStyles.FontTitle;
         if (buttonFont == null) buttonFont = MenuStyles.FontBold;
@@ -390,42 +346,34 @@ public class PauseMenuManager : MonoBehaviour
         }
     }
 
-    #endregion
-
-    #region OnGUI Rendering
-
-
-
     private void OnGUI()
     {
         if (State.MenuAlpha <= 0.01f) return;
 
-        MenuStyles.EnsureStyles(); // Shared base styles (cached, recreated on resize)
+        MenuStyles.EnsureStyles();
         GUI.depth = -100;
 
         float w = Screen.width;
         float h = Screen.height;
         float alpha = State.MenuAlpha;
 
-        // === MONOLITH V6 PIPELINE ===
-        
-        // 1. Cinematic Background
+        // 1. cinematic background
         PauseMenuPanelRenderer.DrawDarkOverlay(w, h, alpha);
-        
-        // 2. The Obelisk Panel
+
+        // 2. obelisk panel
         Rect panelRect = PauseMenuPanelRenderer.GetPanelRect(w, h, uiScale);
         PauseMenuPanelRenderer.DrawPanel(panelRect, alpha, Time.unscaledTime, State.ScanlineOffset);
-        PauseMenuPanelRenderer.DrawDecals(panelRect, alpha, uiScale, bodyFont); 
+        PauseMenuPanelRenderer.DrawDecals(panelRect, alpha, uiScale, bodyFont);
 
-        // 3. Paused Watermark (Game Title + Status)
+        // 3. paused watermark
         if (!State.IsSettingsOpen)
         {
-            string pausedText = "DEMAGNETIZED"; // Game title - same in all languages
+            string pausedText = "DEMAGNETIZED"; // game title - same in all languages
             string subtitleText = L.Get("system_suspended");
             PauseMenuPanelRenderer.DrawPausedIndicator(w, alpha, uiScale, titleFont, pausedText, subtitleText);
         }
 
-        // 4. Content Hosting
+        // 4. content
         float contentX = panelRect.x + 40 * uiScale;
 
         if (State.SettingsAlpha > 0.01f)
@@ -440,25 +388,25 @@ public class PauseMenuManager : MonoBehaviour
             DrawMainMenu(contentX);
         }
 
-        // 5. Final Pass Effects (Subtle)
+        // 5. VHS effects pass
         if (State.IsPaused)
         {
             GUI.color = new Color(1f, 1f, 1f, alpha);
             PauseMenuVHSEffects.DrawScanlines(panelRect, alpha * 0.25f);
-            
-            if (State.GlitchTimer > 0) 
-                 PauseMenuVHSEffects.DrawGlitchEffect(w, State.GlitchTimer, alpha);
+
+            if (State.GlitchTimer > 0)
+                PauseMenuVHSEffects.DrawGlitchEffect(w, State.GlitchTimer, alpha);
         }
 
-        // 6. Tooltip (Global)
+        // 6. tooltip
         if (!string.IsNullOrEmpty(State.CurrentTooltip))
         {
-             var ts = MenuStyles.S(MenuStyles.StyleBody, (int)(12*uiScale),
-                 MenuStyles.WithAlpha(MenuStyles.TextMid, State.TooltipAlpha), TextAnchor.MiddleCenter);
-             GUI.Label(new Rect(0, h - 40*uiScale, w, 30), State.CurrentTooltip, ts);
+            var ts = MenuStyles.S(MenuStyles.StyleBody, (int)(12*uiScale),
+                MenuStyles.WithAlpha(MenuStyles.TextMid, State.TooltipAlpha), TextAnchor.MiddleCenter);
+            GUI.Label(new Rect(0, h - 40*uiScale, w, 30), State.CurrentTooltip, ts);
         }
 
-        // 7. Feedback Message (Settings Saved / Defaults Restored)
+        // 7. feedback message (settings saved / defaults restored)
         if (State.FeedbackAlpha > 0.01f)
         {
             var fs = MenuStyles.S(MenuStyles.StyleBold, Mathf.RoundToInt(14 * uiScale),
@@ -466,19 +414,17 @@ public class PauseMenuManager : MonoBehaviour
             GUI.Label(new Rect(0, h - 70 * uiScale, w, 30), State.FeedbackMessage, fs);
         }
 
-        // Cleanup
         State.CurrentTooltip = "";
         GUI.color = Color.white;
     }
 
     private void DrawMainMenu(float x)
     {
-        // Content starts lower to make room for "PAUSED" big title
-        float y = Screen.height * 0.4f; 
+        // content starts lower to make room for the big "PAUSED" title
+        float y = Screen.height * 0.4f;
         float alpha = (1f - State.SettingsAlpha) * State.MenuAlpha;
-        float buttonW = 450 * uiScale; 
+        float buttonW = 450 * uiScale;
 
-        // Buttons (Underline style - Centered)
         DrawMenuButton(x, ref y, buttonW, L.Get("resume"), 0, alpha, false);
         DrawMenuButton(x, ref y, buttonW, L.Get("settings"), 1, alpha, false);
         DrawMenuButton(x, ref y, buttonW, L.Get("mainmenu"), 2, alpha, false);
@@ -488,8 +434,8 @@ public class PauseMenuManager : MonoBehaviour
     private void DrawMenuButton(float x, ref float y, float w, string text, int index, float alpha, bool isDanger)
     {
         bool clicked = PauseMenuButtonRenderer.DrawButton(
-            x, ref y, w, text, index, State.SelectedIndex, 
-            State.ButtonAnimProgress[index], 
+            x, ref y, w, text, index, State.SelectedIndex,
+            State.ButtonAnimProgress[index],
             alpha, uiScale, buttonFont, isDanger,
             onClick: () => ExecuteMainButton(index),
             onHover: () => {
@@ -500,59 +446,52 @@ public class PauseMenuManager : MonoBehaviour
                 }
             }
         );
-        
+
         if (clicked) PlaySound(selectSound);
     }
 
     private void DrawSettings(float x)
     {
-        float y = Screen.height * 0.12f; 
-        float w = 450 * uiScale; 
+        float y = Screen.height * 0.12f;
+        float w = 450 * uiScale;
         float alpha = State.SettingsAlpha * State.MenuAlpha;
         var tex = MenuStyles.SolidTexture;
 
-        // === LUXE HEADER (Matching main menu style) ===
         string title = L.Get("settings");
 
         var titleStyle = MenuStyles.S(MenuStyles.StyleTitle, Mathf.RoundToInt(48 * uiScale),
             new Color(1f, 1f, 1f, alpha), TextAnchor.MiddleLeft);
         titleStyle.fontStyle = FontStyle.Bold;
 
-        // Shadow
+        // shadow pass
         GUI.color = new Color(0, 0, 0, 0.4f * alpha);
         GUI.Label(new Rect(x + 2, y + 2, w, 60), title, titleStyle);
-        // Main
         GUI.color = Color.white;
         titleStyle.normal.textColor = Color.white * alpha;
         GUI.Label(new Rect(x, y, w, 60), title, titleStyle);
 
-        // Amber accent underline (matching main menu style)
         var accent = S.Amber;
         GUI.color = MenuStyles.WithAlpha(accent, 0.85f * alpha);
         float titleWidth = title.Length * 24f * uiScale;
         GUI.DrawTexture(new Rect(x, y + 55, Mathf.Min(titleWidth, 220), 3), tex);
 
-        // Decorative dot
         GUI.color = MenuStyles.WithAlpha(accent, alpha);
         GUI.DrawTexture(new Rect(x + Mathf.Min(titleWidth, 220) + 8, y + 52, 5, 9), tex);
 
-        // Subtitle (italic, matching DemagnetizedMainMenu style)
         y += 68 * uiScale;
         var subStyle = MenuStyles.S(MenuStyles.StyleLight, Mathf.RoundToInt(11 * uiScale),
             MenuStyles.WithAlpha(S.TextMid, alpha * 0.8f));
         subStyle.fontStyle = FontStyle.Italic;
         GUI.Label(new Rect(x, y, w, 20), L.Get("configure_options"), subStyle);
-        
+
         GUI.color = Color.white;
         y += 30 * uiScale;
 
-        // === LUXE TAB BAR ===
         string[] tabs = { L.Get("tab_game"), L.Get("tab_graphics"), L.Get("tab_effects"), L.Get("tab_audio") };
-        
+
         float tabW = w / 4f;
         float tabH = 42 * uiScale;
-        
-        // Tab background bar
+
         GUI.color = new Color(1f, 1f, 1f, 0.03f * alpha);
         GUI.DrawTexture(new Rect(x, y, w, tabH), tex);
         GUI.color = Color.white;
@@ -563,15 +502,12 @@ public class PauseMenuManager : MonoBehaviour
             bool sel = State.SettingsTab == i;
             bool hov = tr.Contains(Event.current.mousePosition);
 
-            // Only selected tab gets background highlight
             if (sel)
             {
                 GUI.color = new Color(accent.r, accent.g, accent.b, 0.12f * alpha);
                 GUI.DrawTexture(tr, tex);
             }
-            // Hover: NO background - just text color change (less aggressive)
 
-            // Tab text (using shared styles)
             Color tabColor = sel ? accent : (hov ? MenuStyles.TextMain : S.DustyGray);
             var tabStyle = MenuStyles.S(sel ? MenuStyles.StyleBold : MenuStyles.StyleBody,
                 Mathf.RoundToInt((sel ? 15 : 13) * uiScale),
@@ -580,7 +516,6 @@ public class PauseMenuManager : MonoBehaviour
             GUI.color = Color.white;
             GUI.Label(tr, tabs[i], tabStyle);
 
-            // Click handling
             if (hov && Event.current.type == EventType.MouseDown && !sel)
             {
                 State.SettingsTab = i;
@@ -589,7 +524,7 @@ public class PauseMenuManager : MonoBehaviour
             }
         }
 
-        // Animated tab indicator (bottom line)
+        // animated tab indicator line
         float indicatorX = x + State.TabPosition * tabW;
         GUI.color = new Color(accent.r, accent.g, accent.b, 0.9f * alpha);
         GUI.DrawTexture(new Rect(indicatorX + 8, y + tabH - 3, tabW - 16, 3), tex);
@@ -597,7 +532,6 @@ public class PauseMenuManager : MonoBehaviour
         y += tabH + 25 * uiScale;
         GUI.color = Color.white;
 
-        // Draw current tab
         switch (State.SettingsTab)
         {
             case 0: DrawGameTab(x, y, w, alpha); break;
@@ -606,10 +540,9 @@ public class PauseMenuManager : MonoBehaviour
             case 3: DrawAudioTab(x, y, w, alpha); break;
         }
 
-        // Back button
         float backY = Screen.height - 85 * uiScale;
         Rect backR = new Rect(x, backY, 140 * uiScale, 42 * uiScale);
-        if (PauseMenuButtonRenderer.DrawSimpleButton(backR, "◀ " + L.Get("back"), alpha, uiScale, buttonFont))
+        if (PauseMenuButtonRenderer.DrawSimpleButton(backR, "< " + L.Get("back"), alpha, uiScale, buttonFont))
         {
             State.IsSettingsOpen = false;
             PlayerPrefs.Save();
@@ -617,7 +550,6 @@ public class PauseMenuManager : MonoBehaviour
             PlaySound(selectSound);
         }
 
-        // Reset button
         string resetText = L.Get("reset");
         Rect resetR = new Rect(x + 160 * uiScale, backY, 140 * uiScale, 42 * uiScale);
         bool resetHov = resetR.Contains(Event.current.mousePosition);
@@ -630,7 +562,7 @@ public class PauseMenuManager : MonoBehaviour
         var resetStyle = MenuStyles.S(MenuStyles.StyleBold, Mathf.RoundToInt(14 * uiScale),
             MenuStyles.WithAlpha(resetCol, alpha), TextAnchor.MiddleCenter);
         GUI.color = Color.white;
-        GUI.Label(resetR, "↺ " + resetText, resetStyle);
+        GUI.Label(resetR, "* " + resetText, resetStyle);
 
         if (resetHov && Event.current.type == EventType.MouseDown)
         {
@@ -642,10 +574,8 @@ public class PauseMenuManager : MonoBehaviour
 
     private void DrawGameTab(float x, float y, float w, float alpha)
     {
-        var tex = MenuStyles.SolidTexture;
         float sp = 55 * uiScale;
-        
-        // Section: Language
+
         DrawSettingLabel(x, y, L.Get("language"), alpha);
         y += 24 * uiScale;
 
@@ -658,11 +588,9 @@ public class PauseMenuManager : MonoBehaviour
         y += 15 * uiScale;
         y = DrawSeparator(x, y, w, alpha);
 
-        // Section: Controls
         DrawSettingLabel(x, y, L.Get("tab_controls"), alpha);
         y += 26 * uiScale;
-        
-        // Mouse Sensitivity
+
         DrawSettingLabel(x, y, L.Get("sensitivity"), alpha);
         y += 4 * uiScale;
         DrawSubLabel(x, y, L.Get("hint_mouse_speed"), alpha * 0.5f);
@@ -672,17 +600,13 @@ public class PauseMenuManager : MonoBehaviour
             PlayerPrefs.SetFloat(GameSettings.Keys.MOUSE_SENSITIVITY, v);
             ApplySensitivity();
         }, _cachedSensStr, alpha);
-        
+
         y += sp;
-        
-        // Separator
         y = DrawSeparator(x, y, w, alpha);
 
-        // Section: Camera
         DrawSettingLabel(x, y, L.Get("camera"), alpha);
         y += 26 * uiScale;
-        
-        // Field of View
+
         DrawSettingLabel(x, y, L.Get("fov"), alpha);
         y += 4 * uiScale;
         DrawSubLabel(x, y, L.Get("hint_fov"), alpha * 0.5f);
@@ -691,10 +615,9 @@ public class PauseMenuManager : MonoBehaviour
             PlayerPrefs.SetFloat(GameSettings.Keys.FIELD_OF_VIEW, v);
             ApplyFOV();
         }, CacheFov(), alpha, 60f, 110f);
-        
+
         y += sp;
-        
-        // FOV Preview Text
+
         string fovDesc = _fieldOfView switch {
             < 70 => L.Get("fov_narrow"),
             < 85 => L.Get("fov_standard"),
@@ -829,10 +752,10 @@ public class PauseMenuManager : MonoBehaviour
         GUI.color = Color.white;
         return y + 15 * uiScale;
     }
-    
+
     private void DrawGfxLiveStats(float x, float y, float w, float alpha)
     {
-        // FPS Counter (update at 4Hz to reduce string allocations)
+        // update FPS at 4Hz to avoid string allocations every frame
         float fps = 1f / Time.unscaledDeltaTime;
         _fpsUpdateTimer -= Time.unscaledDeltaTime;
         if (_fpsUpdateTimer <= 0f) { _fpsUpdateTimer = 0.25f; _cachedFpsStr = $"{fps:F0} FPS"; }
@@ -842,7 +765,6 @@ public class PauseMenuManager : MonoBehaviour
             MenuStyles.WithAlpha(fpsColor, alpha));
         GUI.Label(new Rect(x, y, 100, 20), _cachedFpsStr, fpsStyle);
 
-        // GPU Name (cached on first use)
         if (_cachedGpuName == null)
         {
             _cachedGpuName = SystemInfo.graphicsDeviceName;
@@ -852,20 +774,19 @@ public class PauseMenuManager : MonoBehaviour
             MenuStyles.WithAlpha(MenuStyles.TextDim, alpha), TextAnchor.MiddleRight);
         GUI.Label(new Rect(x, y, w, 20), _cachedGpuName, gpuStyle);
 
-        // Resolution Scale (second line, cached)
         y += 18 * uiScale;
         if (_cachedRenderStr == null || _cachedRenderStr.Length == 0)
         {
             string resScale = _currentDLSSMode switch {
                 0 => "100%", 1 => "100%", 2 => "66%", 3 => "58%", 4 => "50%", 5 => "33%", _ => "100%"
             };
-            _cachedRenderStr = $"{L.Get("render_label")}: {resScale} \u2192 {Screen.width}x{Screen.height}";
+            _cachedRenderStr = $"{L.Get("render_label")}: {resScale} -> {Screen.width}x{Screen.height}";
         }
         var resStyle = MenuStyles.S(MenuStyles.StyleBody, Mathf.RoundToInt(10 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.MetalGray, alpha));
         GUI.Label(new Rect(x, y, w, 16), _cachedRenderStr, resStyle);
     }
-    
+
     private void DrawSubLabel(float x, float y, string text, float alpha)
     {
         var style = MenuStyles.S(MenuStyles.StyleLight, Mathf.RoundToInt(10 * uiScale),
@@ -876,45 +797,40 @@ public class PauseMenuManager : MonoBehaviour
 
     private void DrawFxTab(float x, float y, float w, float alpha)
     {
-        var tex = MenuStyles.SolidTexture;
         float sp = 38 * uiScale;
         float half = w * 0.48f;
-        
-        // Section: Visual Effects
+
         DrawSettingLabel(x, y, L.Get("visual_effects"), alpha);
         y += 26 * uiScale;
-        
+
         DrawToggleWithHint(x, y, half, L.Get("bloom"), ref _bloom, "FX_Bloom",
             L.Get("hint_bloom"), alpha);
         DrawToggleWithHint(x + half + 20, y, half, L.Get("vignette"), ref _vignette, "FX_Vignette",
             L.Get("hint_vignette"), alpha);
         y += sp;
-        
+
         DrawToggleWithHint(x, y, half, L.Get("filmgrain"), ref _filmGrain, "FX_FilmGrain",
             L.Get("hint_filmgrain"), alpha);
         DrawToggleWithHint(x + half + 20, y, half, L.Get("motionblur"), ref _motionBlur, "FX_MotionBlur",
             L.Get("hint_motionblur"), alpha);
-        
+
         y += sp + 20 * uiScale;
-        
         y = DrawSeparator(x, y, w, alpha);
 
-        // Section: Performance Effects
         DrawSettingLabel(x, y, L.Get("performance_effects"), alpha);
         y += 8 * uiScale;
         DrawSubLabel(x, y, L.Get("hint_perf_effects"), alpha * 0.5f);
         y += 22 * uiScale;
-        
+
         DrawToggleWithHint(x, y, half, L.Get("ssao"), ref _ssao, "FX_SSAO",
             L.Get("hint_ssao"), alpha);
         DrawToggleWithHint(x + half + 20, y, half, L.Get("volumetricfog"), ref _volumetricFog, "FX_VolumetricFog",
             L.Get("hint_volumetricfog"), alpha);
     }
-    
+
     private void DrawToggleWithHint(float x, float y, float w, string label, ref bool val, string key, string hint, float alpha)
     {
         DrawToggle(x, y, w, label, ref val, key, alpha);
-        // Hint below toggle
         var hintStyle = MenuStyles.S(MenuStyles.StyleLight, Mathf.RoundToInt(9 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.MetalGray, alpha * 0.7f));
         GUI.Label(new Rect(x, y + 22 * uiScale, w, 14), hint, hintStyle);
@@ -922,39 +838,34 @@ public class PauseMenuManager : MonoBehaviour
 
     private void DrawAudioTab(float x, float y, float w, float alpha)
     {
-        var tex = MenuStyles.SolidTexture;
         float sp = 55 * uiScale;
-        
-        // Master Volume
+
         DrawSettingLabel(x, y, L.Get("master_volume"), alpha);
         y += 24 * uiScale;
         DrawSlider(x, y, w, ref _masterVolume, v => {
             AudioListener.volume = v;
             PlayerPrefs.SetFloat(GameSettings.Keys.MASTER_VOLUME, v);
         }, CachePercent(ref _cachedMasterVolStr, ref _lastCachedMasterVol, _masterVolume), alpha);
-        
+
         y += sp;
-        
-        // Music Volume
+
         DrawSettingLabel(x, y, L.Get("music"), alpha);
         y += 24 * uiScale;
         DrawSlider(x, y, w, ref _musicVolume, v => {
             PlayerPrefs.SetFloat(GameSettings.Keys.MUSIC_VOLUME, v);
         }, CachePercent(ref _cachedMusicVolStr, ref _lastCachedMusicVol, _musicVolume), alpha);
-        
+
         y += sp;
-        
-        // SFX Volume
+
         DrawSettingLabel(x, y, L.Get("sound_effects"), alpha);
         y += 24 * uiScale;
         float sfxVol = PlayerPrefs.GetFloat(GameSettings.Keys.SFX_VOLUME, 1f);
         DrawSlider(x, y, w, ref sfxVol, v => {
             PlayerPrefs.SetFloat(GameSettings.Keys.SFX_VOLUME, v);
         }, CachePercent(ref _cachedSfxVolStr, ref _lastCachedSfxVol, sfxVol), alpha);
-        
+
         y += sp + 10 * uiScale;
-        
-        // Audio Info
+
         var infoStyle = MenuStyles.S(MenuStyles.StyleBody, Mathf.RoundToInt(10 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.MetalGray, alpha * 0.7f));
         infoStyle.fontStyle = FontStyle.Italic;
@@ -967,11 +878,10 @@ public class PauseMenuManager : MonoBehaviour
         var tex = MenuStyles.SolidTexture;
         var accent = S.Amber;
 
-        // Small accent line before text
+        // small accent line before label text
         GUI.color = MenuStyles.WithAlpha(accent, 0.6f * alpha);
         GUI.DrawTexture(new Rect(x, y + 5, 3, 10), tex);
 
-        // Label text
         var s = MenuStyles.S(MenuStyles.StyleBold, Mathf.RoundToInt(12 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.TextMid, alpha));
         s.fontStyle = FontStyle.Bold;
@@ -986,62 +896,50 @@ public class PauseMenuManager : MonoBehaviour
         float valW = 75 * uiScale;
         float slW = w - valW - 30;
         float nv = Mathf.InverseLerp(min, max, val);
-        
-        // Track position
+
         float trackH = 6 * uiScale;
         float ty = y + 12 * uiScale;
-        
-        // Hover detection
+
         Rect intR = new Rect(x - 5, y - 5, slW + 10, 35 * uiScale);
         bool isHovered = intR.Contains(Event.current.mousePosition);
-        
-        // === PREMIUM SLIDER VISUALS ===
-        
-        // Track background
+
+        // track background
         GUI.color = MenuStyles.WithAlpha(MenuStyles.FilmBrown, 0.8f * alpha);
         GUI.DrawTexture(new Rect(x, ty, slW, trackH), tex);
-        
-        // Fill gradient (Amber)
+
         var accent = S.Amber;
         float fillW = slW * nv;
-        
-        // Glow under fill (subtle)
+
+        // glow under fill
         if (fillW > 2)
         {
             GUI.color = new Color(accent.r, accent.g, accent.b, 0.15f * alpha);
             GUI.DrawTexture(new Rect(x, ty - 2, fillW, trackH + 4), tex);
         }
-        
-        // Main fill
+
         GUI.color = new Color(accent.r, accent.g, accent.b, 0.95f * alpha);
         GUI.DrawTexture(new Rect(x, ty, fillW, trackH), tex);
-        
-        // Handle
+
         float handleSize = (isHovered ? 16 : 14) * uiScale;
         float handleX = x + fillW - handleSize / 2;
         float handleY = ty + trackH / 2 - handleSize / 2;
-        
-        // Handle glow
+
         GUI.color = new Color(accent.r, accent.g, accent.b, 0.3f * alpha);
         GUI.DrawTexture(new Rect(handleX - 3, handleY - 3, handleSize + 6, handleSize + 6), tex);
-        
-        // Handle core
+
         GUI.color = new Color(1f, 1f, 1f, alpha);
         GUI.DrawTexture(new Rect(handleX, handleY, handleSize, handleSize), tex);
-        
-        // Handle inner (accent colored)
+
         GUI.color = new Color(accent.r, accent.g, accent.b, 0.9f * alpha);
         float innerSize = handleSize * 0.5f;
         GUI.DrawTexture(new Rect(handleX + (handleSize - innerSize) / 2, handleY + (handleSize - innerSize) / 2, innerSize, innerSize), tex);
 
-        // Value Text (Right side)
         var vs = MenuStyles.S(MenuStyles.StyleBold, Mathf.RoundToInt(20 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.TextMain, alpha), TextAnchor.MiddleRight);
         vs.fontStyle = FontStyle.Bold;
         GUI.color = Color.white;
         GUI.Label(new Rect(x + slW + 15, y - 2, valW, 35 * uiScale), display, vs);
 
-        // Interaction
         if ((Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseDrag) && intR.Contains(Event.current.mousePosition))
         {
             float newVal = Mathf.Lerp(min, max, Mathf.Clamp01((Event.current.mousePosition.x - x) / slW));
@@ -1053,8 +951,7 @@ public class PauseMenuManager : MonoBehaviour
     {
         var tex = MenuStyles.SolidTexture;
         var accent = S.Amber;
-        
-        // Calculate option width with gaps
+
         float gap = 8 * uiScale;
         float ow = (w - gap * (opts.Length - 1)) / opts.Length;
         float oh = 36 * uiScale;
@@ -1066,42 +963,32 @@ public class PauseMenuManager : MonoBehaviour
             bool isSelected = sel == i;
             bool isHovered = r.Contains(Event.current.mousePosition);
 
-            // === PREMIUM CARD STYLE ===
-            
-            // Background
             if (isSelected)
             {
-                // Selected: Orange tinted background
                 GUI.color = new Color(accent.r, accent.g, accent.b, 0.15f * alpha);
                 GUI.DrawTexture(r, tex);
-                
-                // Top accent line
+
                 GUI.color = new Color(accent.r, accent.g, accent.b, 0.9f * alpha);
                 GUI.DrawTexture(new Rect(r.x, r.y, r.width, 3), tex);
             }
             else if (isHovered)
             {
-                // Hovered: Subtle white tint (indicating clickable)
                 GUI.color = new Color(1f, 1f, 1f, 0.08f * alpha);
                 GUI.DrawTexture(r, tex);
-                
-                // Top line hint
+
                 GUI.color = new Color(1f, 1f, 1f, 0.3f * alpha);
                 GUI.DrawTexture(new Rect(r.x, r.y, r.width, 1), tex);
             }
-            // Normal state: NO background - clean and non-misleading
-            
-            // Text (using shared styles)
+
             Color textColor = isSelected ? accent : (isHovered ? MenuStyles.TextMain : S.DustyGray);
             var st = MenuStyles.S(isSelected ? MenuStyles.StyleBold : MenuStyles.StyleBody,
                 Mathf.RoundToInt((isSelected ? 15 : 13) * uiScale),
                 MenuStyles.WithAlpha(textColor, alpha), TextAnchor.MiddleCenter);
             if (isSelected) st.fontStyle = FontStyle.Bold;
-            
+
             GUI.color = Color.white;
             GUI.Label(r, opts[i], st);
 
-            // Click handling
             if (isHovered && Event.current.type == EventType.MouseDown)
             {
                 PlaySound(selectSound);
@@ -1109,7 +996,7 @@ public class PauseMenuManager : MonoBehaviour
                 Event.current.Use();
             }
         }
-        
+
         GUI.color = Color.white;
     }
 
@@ -1134,7 +1021,6 @@ public class PauseMenuManager : MonoBehaviour
             bool sel = (i == _currentLanguage);
             bool hov = br.Contains(Event.current.mousePosition);
 
-            // Selected: amber tint + top accent line
             if (sel)
             {
                 GUI.color = new Color(accent.r, accent.g, accent.b, 0.12f * alpha);
@@ -1148,7 +1034,6 @@ public class PauseMenuManager : MonoBehaviour
                 GUI.DrawTexture(br, tex);
             }
 
-            // Subtle bottom border only
             float borderA = sel ? 0.3f : (hov ? 0.12f : 0.06f);
             Color bc = sel ? new Color(accent.r, accent.g, accent.b, borderA * alpha)
                           : new Color(1f, 1f, 1f, borderA * alpha);
@@ -1156,14 +1041,12 @@ public class PauseMenuManager : MonoBehaviour
             GUI.DrawTexture(new Rect(bx, by + btnH - 1, btnW, 1), tex);
             GUI.color = Color.white;
 
-            // Text
             Color tc = sel ? accent : (hov ? MenuStyles.TextMain : S.DustyGray);
             var st = MenuStyles.S(sel ? MenuStyles.StyleBold : MenuStyles.StyleBody,
                 Mathf.RoundToInt((sel ? 12 : 11) * uiScale),
                 MenuStyles.WithAlpha(tc, alpha), TextAnchor.MiddleCenter);
             GUI.Label(br, _localeNames[i], st);
 
-            // Click
             if (hov && Event.current.type == EventType.MouseDown)
             {
                 _currentLanguage = i;
@@ -1180,58 +1063,48 @@ public class PauseMenuManager : MonoBehaviour
     private void DrawToggle(float x, float y, float w, string label, ref bool val, string key, float alpha)
     {
         var tex = MenuStyles.SolidTexture;
-        
-        // Switch area for hover detection (only the switch, not whole row)
+
         float swW = 48 * uiScale;
         float swH = 24 * uiScale;
         float swX = x + w - swW - 5;
         float swY = y + 1;
-        
+
         Rect switchArea = new Rect(swX - 10, y - 5, swW + 20, swH + 10);
         bool isHovered = switchArea.Contains(Event.current.mousePosition);
-        
-        // Whole row is clickable
+
         Rect clickArea = new Rect(x, y, w, 28 * uiScale);
         bool isRowHovered = clickArea.Contains(Event.current.mousePosition);
-        
-        // Label (no hover effect - static)
+
         var ls = MenuStyles.S(MenuStyles.StyleBody, Mathf.RoundToInt(14 * uiScale),
             MenuStyles.WithAlpha(MenuStyles.TextMid, alpha));
         GUI.Label(new Rect(x, y + 2, w - 100, 24 * uiScale), label, ls);
 
-        // === PREMIUM SWITCH ===
-
-        // Switch track
+        // switch track
         Color trackColor = val ? S.MechanicGreen : S.MetalGray;
-        float trackAlpha = isHovered ? 0.8f : 0.6f; // Brighter on hover
+        float trackAlpha = isHovered ? 0.8f : 0.6f;
         GUI.color = new Color(trackColor.r, trackColor.g, trackColor.b, trackAlpha * alpha);
         GUI.DrawTexture(new Rect(swX, swY, swW, swH), tex);
-        
-        // Track glow when ON or hovered
+
         if (val || isHovered)
         {
             Color glowColor = val ? S.MechanicGreen : Color.white;
             GUI.color = new Color(glowColor.r, glowColor.g, glowColor.b, (val ? 0.25f : 0.1f) * alpha);
             GUI.DrawTexture(new Rect(swX - 2, swY - 2, swW + 4, swH + 4), tex);
         }
-        
-        // Switch handle (knob)
+
         float handleW = swH - 4 * uiScale;
         float handleX = val ? (swX + swW - handleW - 2 * uiScale) : (swX + 2 * uiScale);
         float handleY = swY + 2 * uiScale;
-        
-        // Handle shadow
+
         GUI.color = new Color(0f, 0f, 0f, 0.3f * alpha);
         GUI.DrawTexture(new Rect(handleX + 1, handleY + 1, handleW, handleW), tex);
-        
-        // Handle main (slightly bigger on hover)
+
         float handleScale = isHovered ? 1.1f : 1f;
         float scaledHandleW = handleW * handleScale;
         float handleOffset = (scaledHandleW - handleW) / 2;
         GUI.color = new Color(1f, 1f, 1f, alpha);
         GUI.DrawTexture(new Rect(handleX - handleOffset, handleY - handleOffset, scaledHandleW, scaledHandleW), tex);
-        
-        // Handle inner (accent when on)
+
         if (val)
         {
             GUI.color = new Color(S.MechanicGreen.r, S.MechanicGreen.g, S.MechanicGreen.b, 0.5f * alpha);
@@ -1240,23 +1113,17 @@ public class PauseMenuManager : MonoBehaviour
         }
 
         GUI.color = Color.white;
-        
-        // Interaction (whole row clickable)
+
+        // whole row is clickable, not just the switch knob
         if (isRowHovered && Event.current.type == EventType.MouseDown)
         {
-            val = !val; 
-            PlayerPrefs.SetInt(key, val ? 1 : 0); 
-            ApplyFx(); 
-            PlaySound(selectSound); 
+            val = !val;
+            PlayerPrefs.SetInt(key, val ? 1 : 0);
+            ApplyFx();
+            PlaySound(selectSound);
             Event.current.Use();
         }
     }
-
-    #endregion
-
-    #region Utility Methods
-
-
 
     private void EnsureLocalization()
     {
@@ -1268,8 +1135,7 @@ public class PauseMenuManager : MonoBehaviour
     private void LoadSettings()
     {
         var gs = GameSettings.Instance;
-        
-        // 1. Load Audio/Input Settings
+
         if (gs != null)
         {
             _masterVolume = gs.MasterVolume;
@@ -1280,6 +1146,7 @@ public class PauseMenuManager : MonoBehaviour
         }
         else
         {
+            // fallback to PlayerPrefs if GameSettings isn't set up yet
             _masterVolume = PlayerPrefs.GetFloat(GameSettings.Keys.MASTER_VOLUME, 1f);
             _musicVolume = PlayerPrefs.GetFloat(GameSettings.Keys.MUSIC_VOLUME, 0.5f);
             _mouseSensitivity = PlayerPrefs.GetFloat(GameSettings.Keys.MOUSE_SENSITIVITY, 0.5f);
@@ -1287,7 +1154,6 @@ public class PauseMenuManager : MonoBehaviour
             _currentDLSSMode = PlayerPrefs.GetInt(GameSettings.Keys.DLSS_MODE, 0);
         }
 
-        // 2. Sync Quality Level State
         var graphics = ServiceLocator.Instance != null ? ServiceLocator.Instance.GraphicsQuality : GraphicsQualityManager.Instance;
         if (graphics != null)
         {
@@ -1295,7 +1161,6 @@ public class PauseMenuManager : MonoBehaviour
         }
         else
         {
-            // Fallback to Unity's Quality Settings
             _currentQualityLevel = QualitySettings.GetQualityLevel();
         }
 
@@ -1320,48 +1185,41 @@ public class PauseMenuManager : MonoBehaviour
 
     private void SetBlur(bool enabled)
     {
-        // Create blur volume on first use (lazy initialization)
         if (_blurVolume == null)
         {
             CreateBlurVolume();
         }
-        
+
         if (_blurVolume != null)
         {
             _blurVolume.enabled = enabled;
         }
     }
-    
+
     private void CreateBlurVolume()
     {
-        // Create a new GameObject for our blur volume
         var blurGO = new GameObject("PauseMenu_BlurVolume");
         blurGO.transform.SetParent(this.transform);
-        
-        // Add Volume component
+
         _blurVolume = blurGO.AddComponent<UnityEngine.Rendering.Volume>();
         _blurVolume.isGlobal = true;
-        _blurVolume.priority = 100; // High priority to override other volumes
+        _blurVolume.priority = 100;
         _blurVolume.weight = 1f;
-        
-        // Create a new VolumeProfile
+
         var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
         _blurVolume.profile = profile;
-        
-        // Add DepthOfField effect with AAA-quality settings
+
         _blurDoF = profile.Add<UnityEngine.Rendering.HighDefinition.DepthOfField>(true);
         _blurDoF.focusMode.Override(UnityEngine.Rendering.HighDefinition.DepthOfFieldMode.Manual);
-        
-        // Optimized blur settings for AAA look
-        // Near focus: Everything very close is in focus (prevents UI blur)
+
+        // near focus: very close stuff stays sharp (don't blur the UI)
         _blurDoF.nearFocusStart.Override(0.0f);
         _blurDoF.nearFocusEnd.Override(0.01f);
-        
-        // Far focus: Background blur starts immediately
+
+        // far focus: background blurs immediately
         _blurDoF.farFocusStart.Override(0.5f);
         _blurDoF.farFocusEnd.Override(8f);
-        
-        // Start disabled
+
         _blurVolume.enabled = false;
     }
 
@@ -1377,12 +1235,12 @@ public class PauseMenuManager : MonoBehaviour
         {
             AudioManager.Instance.StopMusic(0.5f);
         }
-        // Music implementation handled in Update
+        // actual fade-in is handled in UpdatePauseMusic
     }
 
     private void StopPauseMusic()
     {
-        // Handled in UpdatePauseMusic
+        // handled in UpdatePauseMusic
     }
 
     private void UpdatePauseMusic()
@@ -1406,7 +1264,7 @@ public class PauseMenuManager : MonoBehaviour
 
     private void ApplySensitivity()
     {
-        // Lazy-cache FPSExampleController + MethodInfo (avoids FindObjectsByType + reflection per call)
+        // lazy-cache FPSExampleController and UpdateSensitivity MethodInfo - avoid reflection every call
         if (!_fpsControllerSearched)
         {
             _fpsControllerSearched = true;
@@ -1432,7 +1290,7 @@ public class PauseMenuManager : MonoBehaviour
 
     private void ApplyFx()
     {
-        // Lazy-cache Volume references (avoid FindObjectsByType per toggle)
+        // lazy-cache Volume references
         if (_cachedVolumes == null)
             _cachedVolumes = FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsSortMode.None);
 
@@ -1446,7 +1304,7 @@ public class PauseMenuManager : MonoBehaviour
             if (v.profile.TryGet<UnityEngine.Rendering.HighDefinition.ScreenSpaceAmbientOcclusion>(out var s)) s.active = _ssao;
             if (v.profile.TryGet<UnityEngine.Rendering.HighDefinition.Fog>(out var fo)) fo.enableVolumetricFog.value = _volumetricFog;
         }
-        
+
         PlayerPrefs.SetInt(GameSettings.Keys.FULLSCREEN, _fullScreen ? 1 : 0);
         PlayerPrefs.SetInt(GameSettings.Keys.VSYNC, _vSync ? 1 : 0);
         PlayerPrefs.Save();
@@ -1454,18 +1312,15 @@ public class PauseMenuManager : MonoBehaviour
 
     private void SetQuality(int level)
     {
-        // Save preference
         PlayerPrefs.SetInt(GameSettings.Keys.QUALITY_LEVEL, level);
 
-        // Apply via Manager
-        if (GraphicsQualityManager.Instance != null) 
+        if (GraphicsQualityManager.Instance != null)
         {
             GraphicsQualityManager.Instance.SetQuality(level);
             Debug.Log($"[PauseMenu] Setting Quality to: {level}");
         }
         else
         {
-            // Try to find it in scene
             var mgr = FindFirstObjectByType<GraphicsQualityManager>();
             if (mgr != null)
             {
@@ -1473,18 +1328,15 @@ public class PauseMenuManager : MonoBehaviour
             }
             else
             {
-                // Critical Fallback
+                // last resort fallback - probably overkill but better than silently doing nothing
                 Debug.LogWarning("[PauseMenu] GraphicsQualityManager missing! Setting Quality directly.");
                 QualitySettings.SetQualityLevel(level, true);
-                
-                // Try to create it for next time
                 new GameObject("GraphicsQualityManager").AddComponent<GraphicsQualityManager>();
             }
         }
-        
-        // FIX: Removed forced DLSS override. User preference should stay.
-        // If the user wants to change DLSS, they used the DLSS selector.
-        // Changing "Quality Preset" (Shadows/LOD/Textures) shouldn't reset their Upscaling method.
+
+        // NOTE: intentionally NOT resetting DLSS here anymore
+        // changing shadow/LOD/texture quality shouldn't reset the user's upscaling choice
     }
 
     private void SetDLSS(int mode)
@@ -1495,7 +1347,7 @@ public class PauseMenuManager : MonoBehaviour
         {
             WorkingDLSSManager.Instance.SetMode((WorkingDLSSManager.DLSSMode)mode);
             _currentDLSSMode = mode;
-            _cachedRenderStr = null; // Invalidate render stats cache
+            _cachedRenderStr = null; // invalidate render stats
             Debug.Log($"[PauseMenu] DLSS Mode applied: {(WorkingDLSSManager.DLSSMode)mode}");
         }
         else
@@ -1511,7 +1363,7 @@ public class PauseMenuManager : MonoBehaviour
         if (WorkingDLSSManager.Instance != null)
         {
             WorkingDLSSManager.Instance.SetPreset((WorkingDLSSManager.DLSSPreset)preset);
-            _currentDLSSPreset = preset; // Keep UI in sync
+            _currentDLSSPreset = preset;
             Debug.Log($"[PauseMenu] DLSS Preset applied: {(WorkingDLSSManager.DLSSPreset)preset}");
         }
         else
@@ -1534,14 +1386,14 @@ public class PauseMenuManager : MonoBehaviour
         _volumetricFog = true;
         _currentQualityLevel = 0;
         _currentDLSSMode = 0;
-        _currentDLSSPreset = 0; // Auto-select
+        _currentDLSSPreset = 0;
 
         AudioListener.volume = _masterVolume;
         SetQuality(0);
         if (_dlssSupported)
         {
             SetDLSS(0);
-            SetDLSSPreset(0); // Reset to auto-select
+            SetDLSSPreset(0);
         }
         ApplySensitivity();
         ApplyFOV();
@@ -1559,11 +1411,10 @@ public class PauseMenuManager : MonoBehaviour
 
     private void InitializeResolutions()
     {
-        // Filter duplicate resolutions
+        // filter duplicates, prefer higher refresh rates
         var allRes = Screen.resolutions;
         var uniqueRes = new System.Collections.Generic.List<Resolution>();
-        
-        // Prefer higher refresh rates
+
         foreach (var r in allRes)
         {
             bool found = false;
@@ -1573,7 +1424,7 @@ public class PauseMenuManager : MonoBehaviour
                 {
                     if (r.refreshRateRatio.value > uniqueRes[i].refreshRateRatio.value)
                     {
-                        uniqueRes[i] = r; // Replace with higher refresh rate
+                        uniqueRes[i] = r;
                     }
                     found = true;
                     break;
@@ -1581,11 +1432,10 @@ public class PauseMenuManager : MonoBehaviour
             }
             if (!found) uniqueRes.Add(r);
         }
-        
+
         _availableResolutions = uniqueRes.ToArray();
         CacheResolutionStrings();
 
-        // Find current
         _currentResolutionIndex = 0;
         for (int i = 0; i < _availableResolutions.Length; i++)
         {
@@ -1595,19 +1445,18 @@ public class PauseMenuManager : MonoBehaviour
                 break;
             }
         }
-        
+
         _fullScreen = Screen.fullScreen;
         _vSync = QualitySettings.vSyncCount > 0;
-        
-        // Load saved preference if exists
+
         if (PlayerPrefs.HasKey(GameSettings.Keys.FULLSCREEN))
         {
-           bool savedFs = PlayerPrefs.GetInt(GameSettings.Keys.FULLSCREEN) == 1;
-           if (savedFs != _fullScreen)
-           {
-               _fullScreen = savedFs;
-               ApplyResolution();
-           }
+            bool savedFs = PlayerPrefs.GetInt(GameSettings.Keys.FULLSCREEN) == 1;
+            if (savedFs != _fullScreen)
+            {
+                _fullScreen = savedFs;
+                ApplyResolution();
+            }
         }
         if (PlayerPrefs.HasKey(GameSettings.Keys.VSYNC))
         {
@@ -1621,7 +1470,7 @@ public class PauseMenuManager : MonoBehaviour
 
         var r = _availableResolutions[_currentResolutionIndex];
         Screen.SetResolution(r.width, r.height, _fullScreen);
-        _cachedRenderStr = null; // Invalidate render stats cache
+        _cachedRenderStr = null;
         Debug.Log($"[PauseMenu] Set Resolution: {r.width}x{r.height}, Fullscreen: {_fullScreen}");
     }
 
@@ -1646,7 +1495,7 @@ public class PauseMenuManager : MonoBehaviour
         if (fov != _lastCachedFov) { _lastCachedFov = fov; _cachedFovStr = fov + "\u00B0"; }
         return _cachedFovStr;
     }
-    
+
     private void SetVSync(bool enabled)
     {
         _vSync = enabled;
@@ -1659,34 +1508,29 @@ public class PauseMenuManager : MonoBehaviour
         var tex = MenuStyles.SolidTexture;
         var accent = S.Amber;
 
-        // Label
         var ls = MenuStyles.S(MenuStyles.StyleBody, Mathf.RoundToInt(14*uiScale),
             MenuStyles.WithAlpha(MenuStyles.TextMid, alpha));
         GUI.Label(new Rect(x, y+2, 200, 24), label, ls);
 
-        // Selector Box
         float selW = 200 * uiScale;
         float selH = 30 * uiScale;
         float selX = x + w - selW;
 
         Rect r = new Rect(selX, y, selW, selH);
 
-        // Arrows
         Rect leftA = new Rect(selX, y, 30, selH);
         Rect rightA = new Rect(selX + selW - 30, y, 30, selH);
 
-        // Draw Box
         GUI.color = MenuStyles.WithAlpha(MenuStyles.FilmBrown, 0.8f * alpha);
         GUI.DrawTexture(r, tex);
 
-        // Value
         string val = (currentIndex >= 0 && currentIndex < options.Length) ? options[currentIndex] : "Unknown";
         var vs = MenuStyles.S(MenuStyles.StyleBold, Mathf.RoundToInt(13*uiScale),
             MenuStyles.WithAlpha(Color.white, alpha), TextAnchor.MiddleCenter);
         GUI.color = Color.white;
         GUI.Label(r, val, vs);
-        
-        // Arrow navigation (manual hit-test, consistent with rest of UI — no default Unity button skin)
+
+        // manual hit-test for arrows - consistent with rest of UI, no default Unity button skin
         bool leftHov = leftA.Contains(Event.current.mousePosition);
         bool rightHov = rightA.Contains(Event.current.mousePosition);
 
@@ -1712,7 +1556,7 @@ public class PauseMenuManager : MonoBehaviour
             Event.current.Use();
         }
     }
-    
+
     private void OnApplicationFocus(bool hasFocus)
     {
         if (!hasFocus && !State.IsPaused && canOpenMenu)
@@ -1720,6 +1564,4 @@ public class PauseMenuManager : MonoBehaviour
             PauseGame();
         }
     }
-
-    #endregion
 }

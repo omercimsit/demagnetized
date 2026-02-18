@@ -4,12 +4,8 @@ using DamianGonzalez.Portals;
 
 namespace CloneProject
 {
-    /// <summary>
-    /// Adds visual effects to a portal:
-    /// - Point Light source
-    /// - Glowing rim edge
-    /// - Particle system
-    /// </summary>
+    // Adds visual polish to portals: point light, glowing rim edges, and particles
+    // attach this to the same GameObject as PortalSetup
     public class PortalGlowEffects : MonoBehaviour
     {
         [Header("Glow Rim Settings")]
@@ -18,7 +14,7 @@ namespace CloneProject
 
         [Tooltip("Rim color (HDR supported - increase brightness for intensity)")]
         [ColorUsage(true, true)]
-        public Color rimColor = new Color(0.5f, 1.5f, 2f, 1f); // HDR cyan
+        public Color rimColor = new Color(0.5f, 1.5f, 2f, 1f);
 
         [Tooltip("Rim thickness")]
         [Range(0.02f, 0.3f)]
@@ -44,7 +40,7 @@ namespace CloneProject
         public bool enablePortalLight = true;
 
         [Tooltip("Light color")]
-        public Color lightColor = new Color(0.3f, 0.7f, 1f, 1f); // Light blue/cyan
+        public Color lightColor = new Color(0.3f, 0.7f, 1f, 1f);
 
         [Tooltip("Light intensity (lumens for HDRP)")]
         [Range(100f, 10000f)]
@@ -76,7 +72,7 @@ namespace CloneProject
 
         [Tooltip("Particle color")]
         [ColorUsage(true, true)]
-        public Color particleColor = new Color(0.5f, 1.5f, 2f, 1f); // HDR cyan
+        public Color particleColor = new Color(0.5f, 1.5f, 2f, 1f);
 
         [Tooltip("Particles emitted per second")]
         [Range(5f, 100f)]
@@ -109,13 +105,11 @@ namespace CloneProject
         private float _baseIntensity;
         private bool _configured = false;
 
-        // Glow Rim
         private GameObject _rimA;
         private GameObject _rimB;
         private Material _rimMaterial;
         private float _baseRimIntensity;
 
-        // Particles
         private ParticleSystem _particlesA;
         private ParticleSystem _particlesB;
         private Material _particleMaterial;
@@ -132,8 +126,10 @@ namespace CloneProject
 
             _baseIntensity = lightIntensity;
 
+            // subscribe to setup event - portal may not be ready yet when we Start()
             PortalEvents.setupComplete += OnPortalSetupComplete;
 
+            // if already setup (e.g. hot reload in editor), run immediately
             if (_portalSetup.setupComplete)
             {
                 OnPortalSetupComplete(_portalSetup.groupId, _portalSetup);
@@ -175,19 +171,13 @@ namespace CloneProject
             _configured = true;
 
             if (enableGlowRim)
-            {
                 CreateGlowRims();
-            }
 
             if (enablePortalLight)
-            {
                 CreatePortalLights();
-            }
 
             if (enableParticles)
-            {
                 CreateParticles();
-            }
 
             if (verboseDebug)
                 Debug.Log("[PortalGlowEffects] Portal effects created");
@@ -200,19 +190,15 @@ namespace CloneProject
             _rimMaterial.SetColor("_UnlitColor", rimColor * rimIntensity);
             _rimMaterial.EnableKeyword("_EMISSION");
             _rimMaterial.SetColor("_EmissiveColor", rimColor * rimIntensity);
-            _rimMaterial.renderQueue = 3001; // Render in front of portal
+            _rimMaterial.renderQueue = 3001; // render in front of the portal surface
 
             _baseRimIntensity = rimIntensity;
 
             if (_portalSetup.refs.rendererA != null)
-            {
                 _rimA = CreateRimForPortal(_portalSetup.refs.rendererA.transform, "PortalRim_A");
-            }
 
             if (_portalSetup.refs.rendererB != null)
-            {
                 _rimB = CreateRimForPortal(_portalSetup.refs.rendererB.transform, "PortalRim_B");
-            }
 
             if (verboseDebug)
                 Debug.Log($"[PortalGlowEffects] Glow rim created: Color={rimColor}, Thickness={rimThickness}");
@@ -222,16 +208,16 @@ namespace CloneProject
         {
             GameObject rimContainer = new GameObject(rimName);
             rimContainer.transform.SetParent(portalPlane);
-            rimContainer.transform.localPosition = new Vector3(0, 0, -0.01f); // Slightly forward
+            rimContainer.transform.localPosition = new Vector3(0, 0, -0.01f);
             rimContainer.transform.localRotation = Quaternion.identity;
             rimContainer.transform.localScale = Vector3.one;
 
-            // Default quad is 1x1
+            // build 4 edge quads to form the glowing border
+            // hacky but works - a proper approach would use a custom shader
             Vector3 portalScale = portalPlane.localScale;
             float width = portalScale.x;
             float height = portalScale.y;
 
-            // Create 4 edges: top, bottom, left, right
             CreateRimEdge(rimContainer.transform, "Top",
                 new Vector3(0, height / 2f + rimThickness / 2f, 0),
                 new Vector3(width + rimThickness * 2, rimThickness, 0.01f));
@@ -260,6 +246,7 @@ namespace CloneProject
             edge.transform.localRotation = Quaternion.identity;
             edge.transform.localScale = scale;
 
+            // remove collider - the rim is purely visual
             var collider = edge.GetComponent<Collider>();
             if (collider != null)
                 Destroy(collider);
@@ -301,11 +288,11 @@ namespace CloneProject
 
             HDAdditionalLightData hdLight = lightObj.AddComponent<HDAdditionalLightData>();
 
-            // HDRP light settings (2023.3+ API)
+            // HDRP uses physical units - lumens for point lights
             light.intensity = lightIntensity;
             light.lightUnit = UnityEngine.Rendering.LightUnit.Lumen;
             hdLight.affectsVolumetric = true;
-            hdLight.volumetricDimmer = 0.5f; // Affects volumetric fog
+            hdLight.volumetricDimmer = 0.5f;
 
             if (verboseDebug)
                 Debug.Log($"[PortalGlowEffects] Light created: {lightName} at {lightObj.transform.position}");
@@ -315,25 +302,21 @@ namespace CloneProject
 
         private void CreateParticles()
         {
-            // Additive blend particle material
+            // additive transparent material - TODO: switch to a proper VFX Graph effect at some point
             _particleMaterial = new Material(Shader.Find("HDRP/Unlit"));
             _particleMaterial.name = "PortalParticleMaterial";
             _particleMaterial.SetColor("_UnlitColor", particleColor);
             _particleMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             _particleMaterial.EnableKeyword("_BLENDMODE_ADD");
-            _particleMaterial.SetFloat("_SurfaceType", 1); // Transparent
-            _particleMaterial.SetFloat("_BlendMode", 1); // Additive
+            _particleMaterial.SetFloat("_SurfaceType", 1);
+            _particleMaterial.SetFloat("_BlendMode", 1);
             _particleMaterial.renderQueue = 3100;
 
             if (_portalSetup.refs.rendererA != null)
-            {
                 _particlesA = CreateParticleSystemForPortal(_portalSetup.refs.rendererA.transform, "PortalParticles_A");
-            }
 
             if (_portalSetup.refs.rendererB != null)
-            {
                 _particlesB = CreateParticleSystemForPortal(_portalSetup.refs.rendererB.transform, "PortalParticles_B");
-            }
 
             if (verboseDebug)
                 Debug.Log($"[PortalGlowEffects] Particles created: Color={particleColor}, Rate={particleRate}");
@@ -343,8 +326,8 @@ namespace CloneProject
         {
             GameObject particleObj = new GameObject(particleName);
             particleObj.transform.SetParent(portalPlane);
-            particleObj.transform.localPosition = new Vector3(0, 0, -0.05f); // In front of portal
-            particleObj.transform.localRotation = Quaternion.Euler(-90, 0, 0); // Facing forward
+            particleObj.transform.localPosition = new Vector3(0, 0, -0.05f);
+            particleObj.transform.localRotation = Quaternion.Euler(-90, 0, 0);
             particleObj.transform.localScale = Vector3.one;
 
             ParticleSystem ps = particleObj.AddComponent<ParticleSystem>();
@@ -362,7 +345,6 @@ namespace CloneProject
             emission.enabled = true;
             emission.rateOverTime = particleRate;
 
-            // Shape module - emit from portal edges
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Rectangle;
@@ -371,7 +353,7 @@ namespace CloneProject
             shape.scale = new Vector3(portalScale.x * 0.9f, portalScale.y * 0.9f, 0.1f);
             shape.randomDirectionAmount = particleSpread / 90f;
 
-            // Velocity module - move forward; all axes must use the same mode (Constant or Curve)
+            // velocity module - all axes must use same mode or Unity throws an error at runtime
             var velocityOverLifetime = ps.velocityOverLifetime;
             velocityOverLifetime.enabled = true;
             velocityOverLifetime.space = ParticleSystemSimulationSpace.Local;
@@ -379,17 +361,23 @@ namespace CloneProject
             velocityOverLifetime.y = new ParticleSystem.MinMaxCurve(0f);
             velocityOverLifetime.z = new ParticleSystem.MinMaxCurve(-particleSpeed * 0.8f);
 
-            // Color module - fade out over lifetime
             var colorOverLifetime = ps.colorOverLifetime;
             colorOverLifetime.enabled = true;
             Gradient gradient = new Gradient();
             gradient.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 0.7f), new GradientColorKey(Color.white, 1f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) }
+                new GradientColorKey[] {
+                    new GradientColorKey(Color.white, 0f),
+                    new GradientColorKey(Color.white, 0.7f),
+                    new GradientColorKey(Color.white, 1f)
+                },
+                new GradientAlphaKey[] {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(1f, 0.2f),
+                    new GradientAlphaKey(0f, 1f)
+                }
             );
             colorOverLifetime.color = gradient;
 
-            // Size module - shrink and disappear
             var sizeOverLifetime = ps.sizeOverLifetime;
             sizeOverLifetime.enabled = true;
             AnimationCurve sizeCurve = new AnimationCurve();
@@ -427,6 +415,7 @@ namespace CloneProject
 
             if (enableFlicker)
             {
+                // combine sine + perlin for a less regular flicker pattern
                 float flicker = 1f + Mathf.Sin(Time.time * flickerSpeed * Mathf.PI * 2f) * flickerAmount;
                 flicker += Mathf.PerlinNoise(Time.time * flickerSpeed * 0.5f, 0) * flickerAmount * 0.5f;
 
@@ -447,7 +436,6 @@ namespace CloneProject
 
             _baseRimIntensity = rimIntensity;
 
-            // Apply solid color when pulse is disabled
             if (!enableRimPulse)
             {
                 Color finalColor = rimColor * rimIntensity;
@@ -483,26 +471,17 @@ namespace CloneProject
             }
         }
 
-        /// <summary>
-        /// Sets the light color.
-        /// </summary>
         public void SetLightColor(Color color)
         {
             lightColor = color;
         }
 
-        /// <summary>
-        /// Sets the light intensity.
-        /// </summary>
         public void SetLightIntensity(float intensity)
         {
             lightIntensity = intensity;
             _baseIntensity = intensity;
         }
 
-        /// <summary>
-        /// Recreates all portal effects.
-        /// </summary>
         [ContextMenu("Recreate Effects")]
         public void RecreateEffects()
         {
@@ -533,9 +512,6 @@ namespace CloneProject
             }
         }
 
-        /// <summary>
-        /// Sets the rim glow color.
-        /// </summary>
         public void SetRimColor(Color color)
         {
             rimColor = color;
@@ -547,9 +523,6 @@ namespace CloneProject
             }
         }
 
-        /// <summary>
-        /// Sets the particle color.
-        /// </summary>
         public void SetParticleColor(Color color)
         {
             particleColor = color;
@@ -570,9 +543,7 @@ namespace CloneProject
             }
         }
 
-        /// <summary>
-        /// Sets light, rim, and particle colors simultaneously.
-        /// </summary>
+        // sets light, rim, and particle all at once - handy for color theme changes
         public void SetAllColors(Color color)
         {
             SetLightColor(color);

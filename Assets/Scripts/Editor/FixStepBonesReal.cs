@@ -7,20 +7,21 @@ using KINEMATION.Shared.KAnimationCore.Runtime.Rig;
 
 public class FixStepBonesReal
 {
-    // Comprehensive mapping: Banana Man bone names → 3D Game Character bone names
+    // Banana Man -> 3D Game Character bone name remapping
+    // spent way too long figuring out all the variations, don't touch this
     static readonly Dictionary<string, string> BoneMap = new Dictionary<string, string>
     {
         // Pelvis
         {"Hips", "root.x"},
 
-        // Spine chain
+        // Spine chain - Banana Man uses spaces before numbers which is annoying
         {"Spine", "spine_01.x"},
-        {"Spine 1", "spine_01.x"},   // Banana Man uses space before number!
+        {"Spine 1", "spine_01.x"},
         {"Spine1", "spine_02.x"},
-        {"Spine 2", "spine_02.x"},   // Banana Man uses space before number!
+        {"Spine 2", "spine_02.x"},
         {"Chest", "spine_02.x"},
         {"Spine2", "spine_03.x"},
-        {"Spine 3", "spine_03.x"},   // Banana Man uses space before number!
+        {"Spine 3", "spine_03.x"},
         {"Upper Chest", "spine_03.x"},
         {"UpperChest", "spine_03.x"},
         {"Neck", "neck.x"},
@@ -46,7 +47,7 @@ public class FixStepBonesReal
         {"RightHand", "hand.r"},
         {"LeftHand", "hand.l"},
 
-        // Finger tips (FullBodyIK uses these as hand chain tips → map to hand for proper arm IK)
+        // finger tips map to hand so arm IK chain terminates correctly
         {"Right Hand Thumb 3_end", "hand.r"},
         {"Left Hand Thumb 3_end", "hand.l"},
 
@@ -114,7 +115,7 @@ public class FixStepBonesReal
         {"RightToes", "toes_01.r"},
         {"LeftToes", "toes_01.l"},
 
-        // IK targets → separate IK bones created by CreateIKBones tool
+        // IK targets -> separate IK bones created by CreateIKBones tool
         {"IK foot_r", "ik_foot.r"},
         {"IK foot_l", "ik_foot.l"},
         {"IK hand_r", "ik_hand.r"},
@@ -122,7 +123,7 @@ public class FixStepBonesReal
         {"IK hand_l_right", "ik_hand.l"},
     };
 
-    // Known good 3D Game Character bone names OR weapon bones that can't be remapped (don't warn about these)
+    // already-correct 3D Game Character bone names, or weapon bones we can't remap - don't warn about these
     static bool IsKnownGoodName(string name)
     {
         return string.IsNullOrEmpty(name) || name == "None"
@@ -134,7 +135,7 @@ public class FixStepBonesReal
             || name.StartsWith("hand") || name.StartsWith("thigh")
             || name.StartsWith("leg") || name.StartsWith("foot")
             || name.StartsWith("toes") || name.StartsWith("ik_")
-            // Weapon/aim bones - no equivalent in 3D Game Character, created at runtime by FixFPSCamera
+            // weapon/aim bones - no equivalent in 3D Game Character, created at runtime by FixFPSCamera
             || name.Contains("weapon_bone") || name == "aim_socket";
     }
 
@@ -143,12 +144,11 @@ public class FixStepBonesReal
     {
         int fixedCount = 0;
 
-        // Fix PA assets (generic remapper handles ALL modifier types)
+        // generic remapper handles ALL modifier types, not just Step
         fixedCount += FixPAAsset("Assets/KBP01/FBX/PA_FPS_3DGameChar.asset");
         fixedCount += FixPAAsset("Assets/PA_Banana Man.asset");
         fixedCount += FixPAAsset("Assets/_Project/PA_FootIK_Fixed.asset");
 
-        // Fix standalone Step assets
         string[] stepPaths = {
             "Assets/ThirdParty/KINEMATION/CharacterAnimationSystem/Examples/Steps/Step_Turn_Left.asset",
             "Assets/ThirdParty/KINEMATION/CharacterAnimationSystem/Examples/Steps/Step_Turn_Right.asset",
@@ -200,11 +200,8 @@ public class FixStepBonesReal
         return count;
     }
 
-    /// <summary>
-    /// Generic bone name remapper: walks ALL serialized properties,
-    /// finds all KRigElement instances, and maps old Banana Man names
-    /// to correct 3D Game Character names.
-    /// </summary>
+    // walks all serialized properties, finds KRigElement instances (name+index struct),
+    // and maps old Banana Man names to the correct 3D Game Character names
     static int RemapAllBones(SerializedObject so, string context)
     {
         int count = 0;
@@ -215,7 +212,7 @@ public class FixStepBonesReal
         {
             enterChildren = true;
 
-            // Detect KRigElement: a struct with "name" (string) + "index" (int) children
+            // KRigElement is a struct with "name" (string) + "index" (int)
             if (prop.propertyType == SerializedPropertyType.Generic)
             {
                 var nameProp = prop.FindPropertyRelative("name");
@@ -230,13 +227,13 @@ public class FixStepBonesReal
                         nameProp.stringValue = newName;
                         indexProp.intValue = -1;
                         count++;
-                        Debug.Log($"[FixBones]   '{currentName}' → '{newName}' ({prop.propertyPath})");
+                        Debug.Log($"[FixBones]   '{currentName}' -> '{newName}' ({prop.propertyPath})");
                     }
                     else if (!IsKnownGoodName(currentName))
                     {
                         Debug.LogWarning($"[FixBones] UNKNOWN bone: '{currentName}' in {context} ({prop.propertyPath})");
                     }
-                    enterChildren = false; // Skip KRigElement sub-properties
+                    enterChildren = false; // skip KRigElement sub-properties once matched
                 }
             }
         }

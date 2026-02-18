@@ -3,11 +3,9 @@ using CloneGame.Audio;
 
 namespace CloneSystem
 {
-    /// <summary>
-    /// Plays footstep sounds for clone playback.
-    /// Has ghostly/echo effect to differentiate from player.
-    /// Automatically detects surface based on clone position.
-    /// </summary>
+    // plays footstep sounds during clone playback
+    // has a ghostly/echo effect to make clones sound different from the player
+    // TODO: might be worth pooling the echo coroutines if there are many clones
     [RequireComponent(typeof(AudioSource))]
     public class CloneFootstepPlayer : MonoBehaviour
     {
@@ -31,12 +29,10 @@ namespace CloneSystem
         [SerializeField] private float _raycastDistance = 1.5f;
         [SerializeField] private LayerMask _groundMask = ~0;
 
-        // Components
         private AudioSource _audioSource;
         private AudioSource _echoSource;
         private AudioLowPassFilter _lowPassFilter;
 
-        // State
         private SurfaceType _currentSurface = SurfaceType.Concrete;
         private float _lastFootstepTime;
 
@@ -47,7 +43,6 @@ namespace CloneSystem
 
         private void SetupAudio()
         {
-            // Main audio source
             _audioSource = GetComponent<AudioSource>();
             if (_audioSource == null)
             {
@@ -56,12 +51,11 @@ namespace CloneSystem
 
             _audioSource.playOnAwake = false;
             _audioSource.loop = false;
-            _audioSource.spatialBlend = 1f; // 3D
+            _audioSource.spatialBlend = 1f; // 3D sound
             _audioSource.minDistance = 1f;
             _audioSource.maxDistance = 25f;
             _audioSource.rolloffMode = AudioRolloffMode.Linear;
 
-            // Echo audio source
             if (_useEchoEffect)
             {
                 GameObject echoObj = new GameObject("CloneEcho");
@@ -77,7 +71,6 @@ namespace CloneSystem
                 _echoSource.rolloffMode = AudioRolloffMode.Linear;
             }
 
-            // Low pass filter for ghostly effect
             if (_useLowPassFilter)
             {
                 _lowPassFilter = gameObject.AddComponent<AudioLowPassFilter>();
@@ -86,9 +79,7 @@ namespace CloneSystem
             }
         }
 
-        /// <summary>
-        /// Initialize with footstep database (called by AAACloneSystem)
-        /// </summary>
+        // called by AAACloneSystem when setting up a clone
         public void Initialize(FootstepDatabase database)
         {
             _footstepDatabase = database;
@@ -98,23 +89,18 @@ namespace CloneSystem
             }
         }
 
-        /// <summary>
-        /// Play footstep based on current surface detection
-        /// </summary>
+        // auto-detects surface from position
         public void PlayFootstep(bool isRunning)
         {
             DetectSurface();
             PlayFootstep(_currentSurface, isRunning);
         }
 
-        /// <summary>
-        /// Play footstep with specific surface type
-        /// </summary>
         public void PlayFootstep(SurfaceType surface, bool isRunning)
         {
             if (_footstepDatabase == null || _audioSource == null) return;
 
-            // Anti-spam check
+            // simple spam guard
             if (Time.time - _lastFootstepTime < 0.1f) return;
 
             var surfaceData = _footstepDatabase.GetSurfaceData(surface);
@@ -126,7 +112,6 @@ namespace CloneSystem
 
             if (clip == null) return;
 
-            // Apply ghostly pitch
             float pitch = _useGhostlyPitch
                 ? Random.Range(_ghostlyPitchMin, _ghostlyPitchMax)
                 : Random.Range(surfaceData.minPitch, surfaceData.maxPitch);
@@ -134,7 +119,6 @@ namespace CloneSystem
             _audioSource.pitch = pitch;
             _audioSource.PlayOneShot(clip, _volume * surfaceData.volumeMultiplier);
 
-            // Play echo with delay
             if (_useEchoEffect && _echoSource != null)
             {
                 StartCoroutine(PlayEchoDelayed(clip, pitch, _volume * surfaceData.volumeMultiplier * _echoDecay));
@@ -143,18 +127,12 @@ namespace CloneSystem
             _lastFootstepTime = Time.time;
         }
 
-        /// <summary>
-        /// Play jump/land sound
-        /// </summary>
         public void PlayJump()
         {
             DetectSurface();
             PlayJump(_currentSurface);
         }
 
-        /// <summary>
-        /// Play jump with specific surface
-        /// </summary>
         public void PlayJump(SurfaceType surface)
         {
             if (_footstepDatabase == null || _audioSource == null) return;
@@ -183,7 +161,7 @@ namespace CloneSystem
 
             if (_echoSource != null && clip != null)
             {
-                _echoSource.pitch = pitch * 0.95f; // Slightly lower pitch for echo
+                _echoSource.pitch = pitch * 0.95f; // slightly lower pitch for the echo
                 _echoSource.PlayOneShot(clip, volume);
             }
         }
@@ -200,7 +178,7 @@ namespace CloneSystem
 
         private SurfaceType GetSurfaceFromHit(RaycastHit hit)
         {
-            // Check tag first using CompareTag (zero GC, no string allocation)
+            // CompareTag is zero-alloc, check tags first
             var collider = hit.collider;
             if (collider.CompareTag("Concrete") || collider.CompareTag("Floor"))
                 return SurfaceType.Concrete;
@@ -221,7 +199,7 @@ namespace CloneSystem
             if (collider.CompareTag("Wood"))
                 return SurfaceType.Wood;
 
-            // Fallback: check object name (uses IndexOf to avoid ToLower() allocation)
+            // fallback to name check - IndexOf avoids ToLower() allocation
             string name = collider.gameObject.name;
             if (name.IndexOf("metal", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                 name.IndexOf("steel", System.StringComparison.OrdinalIgnoreCase) >= 0)
@@ -234,28 +212,20 @@ namespace CloneSystem
             if (name.IndexOf("wood", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 return SurfaceType.Wood;
 
-            return SurfaceType.Concrete; // Default
+            return SurfaceType.Concrete; // default when nothing matches
         }
 
-        /// <summary>
-        /// Set volume externally (for distance-based attenuation)
-        /// </summary>
         public void SetVolume(float volume)
         {
             _volume = Mathf.Clamp01(volume);
         }
 
-        /// <summary>
-        /// Enable/disable echo effect
-        /// </summary>
         public void SetEchoEnabled(bool enabled)
         {
             _useEchoEffect = enabled;
         }
 
-        /// <summary>
-        /// Stop all audio immediately (called when clone stops)
-        /// </summary>
+        // stops everything immediately when the clone gets destroyed/reset
         public void StopAudio()
         {
             if (_audioSource != null && _audioSource.isPlaying)
@@ -266,12 +236,11 @@ namespace CloneSystem
             {
                 _echoSource.Stop();
             }
-            StopAllCoroutines(); // Stop pending echo delays
+            StopAllCoroutines();
         }
 
         private void OnDestroy()
         {
-            // Cleanup echo object
             if (_echoSource != null)
             {
                 Destroy(_echoSource.gameObject);
@@ -279,9 +248,7 @@ namespace CloneSystem
         }
     }
 
-    /// <summary>
-    /// Footstep event data for recording/playback
-    /// </summary>
+    // data recorded alongside position frames during clone recording
     [System.Serializable]
     public struct FootstepEvent
     {

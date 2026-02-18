@@ -2,10 +2,8 @@ using UnityEngine;
 
 namespace CAS_Demo.Scripts.FPS
 {
-    /// <summary>
-    /// Pushes thighs apart while walking to prevent leg mesh clipping.
-    /// Runs in LateUpdate AFTER all animation systems.
-    /// </summary>
+    // Pushes thighs outward while walking to stop leg mesh clipping.
+    // Must run after all animation systems so execution order is set high.
     [DefaultExecutionOrder(900)]
     public class LegAntiClip : MonoBehaviour
     {
@@ -26,6 +24,7 @@ namespace CAS_Demo.Scripts.FPS
             if (animator == null)
                 animator = GetComponentInChildren<Animator>();
 
+            // only works with humanoid rigs
             if (animator == null || !animator.isHuman)
             {
                 enabled = false;
@@ -56,6 +55,7 @@ namespace CAS_Demo.Scripts.FPS
             float speed = delta.magnitude / Mathf.Max(Time.deltaTime, 0.001f);
             _lastPos = pos;
 
+            // TODO: could expose idle degrees as a separate field if design wants it
             float target = speed > 0.1f ? walkDegrees : 0f;
             _currentDegrees = Mathf.MoveTowards(_currentDegrees, target, 8f * Time.deltaTime);
 

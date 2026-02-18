@@ -4,10 +4,8 @@ using System.Collections.Generic;
 
 namespace CloneGame.Puzzle
 {
-    /// <summary>
-    /// Advanced door that stays open for a limited time after all sensors activate.
-    /// Used in Puzzle 2 where timing is critical.
-    /// </summary>
+    // Door that opens when all sensors are active, then closes after a timer.
+    // Used in Puzzle 2 where you have to make it through before it closes.
     public class TimerPuzzleDoor : MonoBehaviour
     {
         [Header("References")]
@@ -38,7 +36,7 @@ namespace CloneGame.Puzzle
         public UnityEvent OnDoorOpened;
         public UnityEvent OnDoorClosing;
         public UnityEvent OnDoorClosed;
-        public UnityEvent<float> OnTimerTick; // Remaining time
+        public UnityEvent<float> OnTimerTick; // remaining time in seconds
 
         private Vector3 _closedPosition;
         private Vector3 _openPosition;
@@ -73,10 +71,9 @@ namespace CloneGame.Puzzle
                 _openPosition = _closedPosition + _openOffset;
             }
 
+            // auto-collect sensors if none were assigned
             if (_requiredSensors.Count == 0)
-            {
                 _requiredSensors.AddRange(FindObjectsByType<PuzzleSensor>(FindObjectsSortMode.None));
-            }
 
             UpdateIndicator();
         }
@@ -104,10 +101,8 @@ namespace CloneGame.Puzzle
                 }
             }
 
-            // Handle state changes
             if (allActive && !_isUnlocked)
             {
-                // All sensors activated - open door and start timer
                 _isUnlocked = true;
                 _isOpen = true;
                 _timerActive = true;
@@ -120,7 +115,6 @@ namespace CloneGame.Puzzle
             }
             else if (!allActive && _isUnlocked && _requireContinuousActivation)
             {
-                // Sensors deactivated and we require continuous activation
                 _isUnlocked = false;
                 _isOpen = false;
                 _timerActive = false;
@@ -141,14 +135,13 @@ namespace CloneGame.Puzzle
 
             OnTimerTick?.Invoke(remaining);
 
-            // Warning at 2 seconds
+            // 2 second warning beep
             if (remaining <= 2f && remaining > 1.9f)
             {
                 PlaySound(_closeWarningSound);
                 OnDoorClosing?.Invoke();
             }
 
-            // Timer expired
             if (_openTimer >= _stayOpenDuration)
             {
                 _timerActive = false;
@@ -162,7 +155,6 @@ namespace CloneGame.Puzzle
             }
             else
             {
-                // Update indicator color based on remaining time
                 UpdateTimerIndicator(remaining);
             }
         }
@@ -196,11 +188,10 @@ namespace CloneGame.Puzzle
         {
             if (_indicatorRenderer == null) return;
 
-            // Lerp between green and yellow based on remaining time
             float t = remaining / _stayOpenDuration;
             Color color = Color.Lerp(_timerColor, _unlockedColor, t);
 
-            // Pulse effect when low on time
+            // pulse red when about to close
             if (remaining <= 2f)
             {
                 float pulse = Mathf.Sin(Time.time * 10f) * 0.5f + 0.5f;
@@ -216,9 +207,7 @@ namespace CloneGame.Puzzle
         private void PlaySound(AudioClip clip)
         {
             if (clip != null && _audioSource != null)
-            {
                 _audioSource.PlayOneShot(clip);
-            }
         }
 
         public int GetActiveSensorCount()
@@ -231,9 +220,7 @@ namespace CloneGame.Puzzle
             return count;
         }
 
-        /// <summary>
-        /// Manually trigger door open (for testing)
-        /// </summary>
+        // useful for testing without having to trigger all sensors
         [ContextMenu("Force Open")]
         public void ForceOpen()
         {
@@ -245,9 +232,6 @@ namespace CloneGame.Puzzle
             UpdateIndicator();
         }
 
-        /// <summary>
-        /// Manually close door
-        /// </summary>
         [ContextMenu("Force Close")]
         public void ForceClose()
         {

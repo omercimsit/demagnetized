@@ -16,10 +16,8 @@ public class DiagnoseCharacter
 
         Debug.Log("[Diag] Animator: " + animator.gameObject.name + " isHuman=" + animator.isHuman + " avatar=" + (animator.avatar != null ? animator.avatar.name : "NULL"));
 
-        // --- CharacterSkeleton bone dump ---
         DiagnoseSkeleton(animator);
 
-        // --- ProceduralAnimationComponent ---
         var pa = animator.GetComponent<ProceduralAnimationComponent>();
         Debug.Log("[Diag] PA Component: " + (pa != null ? "Found" : "NULL"));
 
@@ -28,11 +26,9 @@ public class DiagnoseCharacter
             DiagnosePA(pa);
         }
 
-        // --- PA Asset (proceduralSettings field) ---
         DiagnosePAAsset(animator);
 
-        // --- FPS Controller Step references ---
-        // Find FPSExampleController by type name (avoids compile error when CAS Demo not imported)
+        // find FPSExampleController by type name to avoid compile errors when CAS Demo isn't imported
         MonoBehaviour fps = null;
         foreach (var mb in Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
         {
@@ -50,7 +46,6 @@ public class DiagnoseCharacter
             }
         }
 
-        // --- Dump Step asset bone names ---
         DiagnoseStepAssets();
 
         Debug.Log("=== [Diag] DIAGNOSTIC COMPLETE ===");
@@ -66,7 +61,6 @@ public class DiagnoseCharacter
 
         if (skeleton == null)
         {
-            // Try finding any CharacterSkeleton in scene
             skeleton = Object.FindFirstObjectByType<CharacterSkeleton>();
         }
 
@@ -80,7 +74,6 @@ public class DiagnoseCharacter
         Debug.Log("[Diag] CharacterSkeleton on: " + skeleton.gameObject.name);
         Debug.Log("[Diag] Total skeleton bones: " + bones.Count);
 
-        // Dump all bone names
         for (int i = 0; i < bones.Count; i++)
         {
             var bone = bones[i];
@@ -88,7 +81,7 @@ public class DiagnoseCharacter
             Debug.Log("[Diag]   Bone[" + i + "] name=\"" + bone.rigElement.name + "\" idx=" + bone.rigElement.index + " depth=" + bone.rigElement.depth + " transform=" + hasTransform);
         }
 
-        // Check critical bones for "3D Game Character" skeleton
+        // these are the key bones we care about for "3D Game Character"
         Debug.Log("[Diag] --- KEY BONE CHECK ---");
         string[] keyBones = {
             "root.x", "spine_01", "spine_02", "spine_03", "neck",
@@ -122,7 +115,6 @@ public class DiagnoseCharacter
     {
         var so = new SerializedObject(pa);
 
-        // Check proceduralSettings reference
         var settingsRef = so.FindProperty("proceduralSettings");
         if (settingsRef != null && settingsRef.objectReferenceValue != null)
         {
@@ -136,7 +128,7 @@ public class DiagnoseCharacter
 
     static void DiagnosePAAsset(Animator animator)
     {
-        // Check PA assets Step Modifier bone names
+        // check all PA assets we know about
         string[] paAssetPaths = {
             "Assets/KBP01/FBX/PA_FPS_3DGameChar.asset",
             "Assets/PA_Banana Man.asset",

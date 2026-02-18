@@ -4,10 +4,8 @@ using KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Core;
 
 namespace CloneProject
 {
-    /// <summary>
-    /// Handles KINEMATION Character Animation System compatibility with portal teleportation.
-    /// IMPORTANT: Do NOT use Animator.Rebind() with KINEMATION - it invalidates TransformStreamHandles!
-    /// </summary>
+    // Handles animator state after portal teleport for KINEMATION characters.
+    // DO NOT call Animator.Rebind() here - it destroys TransformStreamHandles and crashes the jobs.
     [DefaultExecutionOrder(1000)]
     public class CASPortalCompatibility : MonoBehaviour
     {
@@ -21,14 +19,13 @@ namespace CloneProject
 
         private void Awake()
         {
-            // Animator might be on a child (e.g., Banana Man)
+            // animator might be on a child object
             _animator = GetComponent<Animator>();
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
 
             _myTransform = transform;
 
-            // Check if this is a KINEMATION character
             _casComponent = GetComponentInChildren<CharacterAnimationComponent>();
             _isKinemationCharacter = _casComponent != null;
 
@@ -67,13 +64,10 @@ namespace CloneProject
 
             if (_isKinemationCharacter)
             {
-                // KINEMATION characters: Do NOT rebind - just reset animator state softly
-                // Rebind() destroys the playable graph and invalidates TransformStreamHandles
-
-                // Option 1: Just trigger a state update without rebinding
+                // soft reset only - Rebind() invalidates TransformStreamHandles with KINEMATION
                 _animator.Update(0f);
 
-                // Option 2: If animations look broken, reset to default state
+                // if animations still look broken after teleport, could try replaying current state:
                 // _animator.Play(_animator.GetCurrentAnimatorStateInfo(0).fullPathHash, 0, 0f);
 
                 if (verboseDebug)
@@ -81,9 +75,7 @@ namespace CloneProject
             }
             else
             {
-                // Non-KINEMATION characters: Soft reset (disable/enable cycle).
-                // Even non-KINEMATION paths should avoid Rebind() as a safety measure
-                // in case CAS components are added later.
+                // non-KINEMATION path: disable/enable is safer than Rebind in case CAS gets added later
                 _animator.enabled = false;
                 _animator.enabled = true;
                 _animator.Update(0f);

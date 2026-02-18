@@ -5,18 +5,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 
-/// <summary>
-/// Editor tool that auto-assigns layers and spatially groups scene objects for culling.
-/// Menu: Tools/Optimization/
-/// </summary>
+// auto-assigns layers and spatially groups scene objects for culling
+// Menu: Tools/Optimization/
 public class HierarchyOptimizer : EditorWindow
 {
     private Vector2 scrollPos;
-    #pragma warning disable CS0414
     private bool showDetails = true;
-    #pragma warning restore CS0414
 
-    // Stats
+    // scene stats - refreshed manually
     private int totalObjects;
     private int propsCount;
     private int detailCount;
@@ -43,7 +39,6 @@ public class HierarchyOptimizer : EditorWindow
             // AbandonedFactory already done
         };
 
-        // Save current scene
         string currentScene = EditorSceneManager.GetActiveScene().path;
         if (EditorSceneManager.GetActiveScene().isDirty)
         {
@@ -58,37 +53,29 @@ public class HierarchyOptimizer : EditorWindow
         {
             if (!File.Exists(scenePath))
             {
-                results.Add($"⚠ {Path.GetFileName(scenePath)} - NOT FOUND");
+                results.Add($"  {Path.GetFileName(scenePath)} - NOT FOUND");
                 continue;
             }
 
             try
             {
-                // Load scene
                 EditorSceneManager.OpenScene(scenePath);
-
-                // Optimize
                 int layers = OptimizeCurrentScene();
-
-                // Save
                 EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-
-                results.Add($"✓ {Path.GetFileName(scenePath)} - {layers} objects");
+                results.Add($"OK {Path.GetFileName(scenePath)} - {layers} objects");
                 optimizedCount++;
             }
             catch (System.Exception e)
             {
-                results.Add($"✗ {Path.GetFileName(scenePath)} - ERROR: {e.Message}");
+                results.Add($"FAIL {Path.GetFileName(scenePath)} - ERROR: {e.Message}");
             }
         }
 
-        // Return to original scene
         if (!string.IsNullOrEmpty(currentScene) && File.Exists(currentScene))
         {
             EditorSceneManager.OpenScene(currentScene);
         }
 
-        // Show results
         string resultText = string.Join("\n", results);
         EditorUtility.DisplayDialog("Batch Optimization Complete",
             $"Optimized {optimizedCount}/{scenePaths.Length} scenes:\n\n{resultText}",
@@ -97,9 +84,7 @@ public class HierarchyOptimizer : EditorWindow
         Debug.Log($"[HierarchyOptimizer] Batch complete: {optimizedCount} scenes optimized");
     }
 
-    /// <summary>
-    /// Optimize current scene and return number of objects processed
-    /// </summary>
+    // optimize current scene and return number of objects processed
     private static int OptimizeCurrentScene()
     {
         int total = 0;
@@ -109,35 +94,29 @@ public class HierarchyOptimizer : EditorWindow
         int decalsLayer = LayerMask.NameToLayer("Decals");
         int vfxLayer = LayerMask.NameToLayer("VFX");
 
-        // Find ALL GameObjects with these names (works with nested hierarchies)
         string[] propsNames = { "Meshes", "Props", "StaticMeshes", "Environment", "Buildings" };
         string[] detailNames = { "RockFromFoliage", "Rocks", "Foliage", "Vegetation", "Grass", "Details" };
         string[] decalNames = { "Decals", "DecalActors" };
         string[] vfxNames = { "Particles", "VFX", "Effects", "ParticleSystems" };
 
-        // Get ALL transforms in scene
         var allTransforms = GameObject.FindObjectsByType<Transform>(FindObjectsSortMode.None);
 
         foreach (var t in allTransforms)
         {
             string objName = t.gameObject.name;
 
-            // Check Props
             if (propsLayer >= 0 && propsNames.Any(n => objName == n))
             {
                 total += AssignLayerToChildren(t, propsLayer);
             }
-            // Check Detail
             else if (detailLayer >= 0 && detailNames.Any(n => objName == n))
             {
                 total += AssignLayerToChildren(t, detailLayer);
             }
-            // Check Decals
             else if (decalsLayer >= 0 && decalNames.Any(n => objName == n))
             {
                 total += AssignLayerToChildren(t, decalsLayer);
             }
-            // Check VFX
             else if (vfxLayer >= 0 && vfxNames.Any(n => objName == n))
             {
                 total += AssignLayerToChildren(t, vfxLayer);
@@ -170,10 +149,9 @@ public class HierarchyOptimizer : EditorWindow
     {
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
-        GUILayout.Label("=== HIERARCHY OPTIMIZER ===", EditorStyles.boldLabel);
+        GUILayout.Label("HIERARCHY OPTIMIZER", EditorStyles.boldLabel);
         GUILayout.Space(10);
 
-        // Quick Stats
         EditorGUILayout.HelpBox(
             $"Scene Stats:\n" +
             $"- Props: {propsCount}\n" +
@@ -184,7 +162,6 @@ public class HierarchyOptimizer : EditorWindow
 
         GUILayout.Space(10);
 
-        // LAYER ASSIGNMENT
         GUILayout.Label("1. LAYER ASSIGNMENT", EditorStyles.boldLabel);
 
         if (GUILayout.Button("Assign Layers to All Objects", GUILayout.Height(30)))
@@ -194,7 +171,6 @@ public class HierarchyOptimizer : EditorWindow
 
         GUILayout.Space(10);
 
-        // SPATIAL GROUPING
         GUILayout.Label("2. SPATIAL GROUPING (Optional)", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
             "Groups objects into spatial cells for hierarchical culling.\n" +
@@ -208,7 +184,6 @@ public class HierarchyOptimizer : EditorWindow
 
         GUILayout.Space(10);
 
-        // CLEANUP
         GUILayout.Label("3. CLEANUP", EditorStyles.boldLabel);
 
         if (GUILayout.Button("Remove Duplicate Rocks (Keep 50%)"))
@@ -223,7 +198,6 @@ public class HierarchyOptimizer : EditorWindow
 
         GUILayout.Space(10);
 
-        // ANALYZE
         GUILayout.Label("4. ANALYZE", EditorStyles.boldLabel);
 
         if (GUILayout.Button("Refresh Stats"))
@@ -241,22 +215,18 @@ public class HierarchyOptimizer : EditorWindow
         decalsCount = 0;
         vfxCount = 0;
 
-        // Count Meshes
         var meshes = GameObject.Find("Meshes");
         if (meshes != null)
             propsCount = meshes.transform.childCount;
 
-        // Count Rocks
         var rocks = GameObject.Find("RockFromFoliage");
         if (rocks != null)
             detailCount = rocks.transform.childCount;
 
-        // Count Decals
         var decals = GameObject.Find("Decals");
         if (decals != null)
             decalsCount = decals.transform.childCount;
 
-        // Count Particles
         var particles = GameObject.Find("Particles");
         if (particles != null)
             vfxCount = particles.transform.childCount;
@@ -266,9 +236,6 @@ public class HierarchyOptimizer : EditorWindow
         Debug.Log($"[HierarchyOptimizer] Analyzed: Props={propsCount}, Detail={detailCount}, Decals={decalsCount}, VFX={vfxCount}");
     }
 
-    /// <summary>
-    /// Assign appropriate layers to all categorized objects
-    /// </summary>
     private void AssignLayers()
     {
         layersAssigned = 0;
@@ -278,7 +245,6 @@ public class HierarchyOptimizer : EditorWindow
         int decalsLayer = LayerMask.NameToLayer("Decals");
         int vfxLayer = LayerMask.NameToLayer("VFX");
 
-        // Meshes -> Props
         var meshes = GameObject.Find("Meshes");
         if (meshes != null && propsLayer >= 0)
         {
@@ -287,7 +253,6 @@ public class HierarchyOptimizer : EditorWindow
             Debug.Log($"[HierarchyOptimizer] Meshes -> Props layer ({meshes.transform.childCount} objects)");
         }
 
-        // RockFromFoliage -> Detail
         var rocks = GameObject.Find("RockFromFoliage");
         if (rocks != null && detailLayer >= 0)
         {
@@ -296,7 +261,6 @@ public class HierarchyOptimizer : EditorWindow
             Debug.Log($"[HierarchyOptimizer] RockFromFoliage -> Detail layer ({rocks.transform.childCount} objects)");
         }
 
-        // Decals -> Decals
         var decals = GameObject.Find("Decals");
         if (decals != null && decalsLayer >= 0)
         {
@@ -305,7 +269,6 @@ public class HierarchyOptimizer : EditorWindow
             Debug.Log($"[HierarchyOptimizer] Decals -> Decals layer ({decals.transform.childCount} objects)");
         }
 
-        // Particles -> VFX
         var particles = GameObject.Find("Particles");
         if (particles != null && vfxLayer >= 0)
         {
@@ -316,14 +279,13 @@ public class HierarchyOptimizer : EditorWindow
 
         EditorUtility.DisplayDialog("Layer Assignment",
             $"Layers assigned successfully!\n\n" +
-            $"- Meshes → Props (Layer 16)\n" +
-            $"- RockFromFoliage → Detail (Layer 17)\n" +
-            $"- Decals → Decals (Layer 20)\n" +
-            $"- Particles → VFX (Layer 21)\n\n" +
+            $"- Meshes -> Props (Layer 16)\n" +
+            $"- RockFromFoliage -> Detail (Layer 17)\n" +
+            $"- Decals -> Decals (Layer 20)\n" +
+            $"- Particles -> VFX (Layer 21)\n\n" +
             $"Total: {layersAssigned} objects updated.",
             "OK");
 
-        // Mark scene dirty
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
     }
@@ -338,7 +300,6 @@ public class HierarchyOptimizer : EditorWindow
                 layersAssigned++;
             }
 
-            // Recursively assign to all children
             if (child.childCount > 0)
             {
                 AssignLayerRecursive(child, layer);
@@ -346,9 +307,7 @@ public class HierarchyOptimizer : EditorWindow
         }
     }
 
-    /// <summary>
-    /// Group objects into spatial cells for hierarchical culling
-    /// </summary>
+    // groups objects into spatial cells for hierarchical culling
     private void GroupByRegion(string parentName, float cellSize)
     {
         var parent = GameObject.Find(parentName);
@@ -360,7 +319,6 @@ public class HierarchyOptimizer : EditorWindow
 
         Dictionary<Vector2Int, List<Transform>> regions = new Dictionary<Vector2Int, List<Transform>>();
 
-        // Collect children by region
         List<Transform> children = new List<Transform>();
         foreach (Transform child in parent.transform)
         {
@@ -380,11 +338,10 @@ public class HierarchyOptimizer : EditorWindow
             regions[cell].Add(child);
         }
 
-        // Create region groups
         int groupCount = 0;
         foreach (var kvp in regions)
         {
-            if (kvp.Value.Count < 5) continue; // Skip very small groups
+            if (kvp.Value.Count < 5) continue; // skip tiny groups, probably not worth the overhead
 
             string groupName = $"{parentName}_Region_{kvp.Key.x}_{kvp.Key.y}";
             var regionGroup = new GameObject(groupName);
@@ -410,9 +367,7 @@ public class HierarchyOptimizer : EditorWindow
             "OK");
     }
 
-    /// <summary>
-    /// Remove excess rocks to reduce draw calls
-    /// </summary>
+    // removes excess rocks to cut draw calls - uses fixed seed so results are reproducible
     private void RemoveDuplicateRocks(float keepRatio)
     {
         var rocks = GameObject.Find("RockFromFoliage");
@@ -421,15 +376,13 @@ public class HierarchyOptimizer : EditorWindow
         int originalCount = rocks.transform.childCount;
         int toRemove = Mathf.FloorToInt(originalCount * (1f - keepRatio));
 
-        // Get all children
         List<Transform> children = new List<Transform>();
         foreach (Transform child in rocks.transform)
         {
             children.Add(child);
         }
 
-        // Shuffle and remove
-        System.Random rng = new System.Random(42); // Seed for reproducibility
+        System.Random rng = new System.Random(42); // fixed seed for reproducibility
         var shuffled = children.OrderBy(x => rng.Next()).ToList();
 
         for (int i = 0; i < toRemove && i < shuffled.Count; i++)
@@ -447,15 +400,11 @@ public class HierarchyOptimizer : EditorWindow
             "OK");
     }
 
-    /// <summary>
-    /// Disable small objects beyond render distance
-    /// </summary>
     private void DisableDistantSmallObjects()
     {
         var rocks = GameObject.Find("RockFromFoliage");
         if (rocks == null) return;
 
-        // Find player spawn or center
         Vector3 center = Vector3.zero;
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)

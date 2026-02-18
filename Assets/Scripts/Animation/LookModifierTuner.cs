@@ -7,6 +7,7 @@ using KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Modifiers.IK;
 using KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Core;
 
 
+// editor window for live-tweaking IK and look modifier values without recompiling
 public class LookModifierTuner : EditorWindow
 {
     private float _pitch = 5f;
@@ -28,21 +29,21 @@ public class LookModifierTuner : EditorWindow
     private string _paPath = "Assets/KBP01/FBX/PA_FPS_3DGameChar.asset";
     private ProceduralAnimationSettings _paAsset;
 
-    // Foot IK
+    // foot IK weights
     private float _footIkWeight = 1f;
     private float _footIkPoleWeight = 1f;
     private float _footYawOffset = 0f;
     private bool _copyFootRotation = true;
     private bool _showFootIk = true;
 
-    // Foot IK Trace
+    // trace / ground detection
     private float _traceOffset = 0.58f;
     private float _traceRadius = 0.03f;
     private float _interpSpeed = 15f;
     private float _groundOffset = -0.01f;
     private bool _showFootTrace = true;
 
-    // Step Modifier
+    // step modifier (turn-in-place)
     private float _maxOffsetAngle = 45f;
     private bool _showStep = false;
 
@@ -158,7 +159,6 @@ public class LookModifierTuner : EditorWindow
 
         _lookSO.Update();
 
-        // === LOOK MODIFIER ===
         EditorGUILayout.LabelField("LOOK MODIFIER (Spine Rotation)", EditorStyles.boldLabel);
         EditorGUILayout.Space(4);
 
@@ -186,6 +186,7 @@ public class LookModifierTuner : EditorWindow
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("Presets", EditorStyles.boldLabel);
 
+        // TODO: add a "cinematic" preset with exaggerated values for cutscenes
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Subtle"))   { _pitch = 3; _yaw = 5; _roll = 2; ApplyLookAll(); lookChanged = true; }
         if (GUILayout.Button("Natural"))  { _pitch = 5; _yaw = 8; _roll = 3; ApplyLookAll(); lookChanged = true; }
@@ -193,13 +194,11 @@ public class LookModifierTuner : EditorWindow
         if (GUILayout.Button("Strong"))   { _pitch = 12; _yaw = 18; _roll = 5; ApplyLookAll(); lookChanged = true; }
         EditorGUILayout.EndHorizontal();
 
-        // Apply to runtime if in Play Mode
         if (lookChanged && isPlaying)
         {
             PushToRuntime(_lookMod);
         }
 
-        // === FULL BODY IK (FEET) ===
         EditorGUILayout.Space(16);
         _showFootIk = EditorGUILayout.Foldout(_showFootIk, "FULL BODY IK (Feet)", true, EditorStyles.foldoutHeader);
 
@@ -247,7 +246,6 @@ public class LookModifierTuner : EditorWindow
             }
         }
 
-        // === FOOT IK TRACE ===
         EditorGUILayout.Space(16);
         _showFootTrace = EditorGUILayout.Foldout(_showFootTrace, "FOOT IK TRACE (Ground Detection)", true, EditorStyles.foldoutHeader);
 
@@ -313,7 +311,6 @@ public class LookModifierTuner : EditorWindow
             }
         }
 
-        // === STEP MODIFIER ===
         EditorGUILayout.Space(16);
         _showStep = EditorGUILayout.Foldout(_showStep, "STEP MODIFIER (Turn-in-Place)", true, EditorStyles.foldoutHeader);
 
@@ -339,7 +336,6 @@ public class LookModifierTuner : EditorWindow
             }
         }
 
-        // === SAVE ===
         EditorGUILayout.Space(16);
         GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
         if (GUILayout.Button("Save All to Asset", GUILayout.Height(30)))
@@ -351,7 +347,7 @@ public class LookModifierTuner : EditorWindow
                 SetFootIkPoleWeight(_footIkPoleWeight);
                 SetFootYawOffset(_footYawOffset);
             }
-            // Ensure copyRotation is always ON (required for correct IK rotation blending)
+            // copyRotation must stay true or foot IK rotation blending breaks
             if (_copyRightSO != null) SetCopyRotation(true);
             if (_footIkSO != null) ApplyAllTrace();
             if (_stepModSO != null) SetStepValue("maxAllowedOffsetAngle", _maxOffsetAngle);
@@ -375,6 +371,7 @@ public class LookModifierTuner : EditorWindow
         }
     }
 
+    // pushes modifier changes to all ProceduralAnimationComponents in the scene
     void PushToRuntime(AnimationModifierSettings settings)
     {
         if (!Application.isPlaying || settings == null) return;

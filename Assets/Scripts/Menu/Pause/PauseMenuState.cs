@@ -2,27 +2,20 @@ using UnityEngine;
 
 namespace Menu.Pause
 {
-    /// <summary>
-    /// Pause Menu State - Centralized state management for the pause system.
-    /// Extracted from PauseMenuManager for modularity.
-    /// Uses ScriptableObject-like pattern for cross-component access.
-    /// </summary>
+    // centralized state for the pause system
+    // extracted from PauseMenuManager so modules can read it without circular deps
     public class PauseMenuState
     {
-        #region Singleton
         private static PauseMenuState _instance;
         public static PauseMenuState Instance => _instance ??= new PauseMenuState();
-        #endregion
 
-        #region Core State
         public bool IsPaused { get; private set; }
         public bool IsSettingsOpen { get; set; }
         public int SettingsTab { get; set; }
         public float SavedTimeScale { get; set; } = 1f;
         public float LastPauseToggleTime { get; set; }
-        #endregion
 
-        #region Animation State
+        // animation state
         public float MenuAlpha { get; set; }
         public float SettingsAlpha { get; set; }
         public float TabPosition { get; set; }
@@ -31,17 +24,13 @@ namespace Menu.Pause
         public float NoiseTime { get; set; }
         public float[] ButtonScales { get; } = new float[PauseMenuConfig.MaxButtonCount];
         public float[] ButtonAnimProgress { get; set; } = new float[PauseMenuConfig.MaxButtonCount];
-        #endregion
 
-        #region Navigation State
+        // navigation
         public int SelectedIndex { get; set; }
         public int LastHoveredButton { get; set; } = -1;
         public int MaxMainButtons { get; set; } = 4;
-        #endregion
 
-        /// <summary>
-        /// Resets the state to default values. Call this on game start.
-        /// </summary>
+        // reset to defaults - call this on scene load to avoid state bleeding between sessions
         public void Reset()
         {
             IsPaused = false;
@@ -58,20 +47,17 @@ namespace Menu.Pause
             SelectedIndex = 0;
             LastHoveredButton = -1;
 
-            for(int i=0; i<ButtonAnimProgress.Length; i++) ButtonAnimProgress[i] = 0f;
-            for(int i=0; i<ButtonScales.Length; i++) ButtonScales[i] = 1f;
+            for (int i = 0; i < ButtonAnimProgress.Length; i++) ButtonAnimProgress[i] = 0f;
+            for (int i = 0; i < ButtonScales.Length; i++) ButtonScales[i] = 1f;
         }
 
-        #region Tooltip & Feedback
+        // tooltip and feedback
         public string CurrentTooltip { get; set; } = "";
         public float TooltipAlpha { get; set; }
         public float TooltipTimer { get; set; }
         public string FeedbackMessage { get; set; } = "";
         public float FeedbackAlpha { get; set; }
         public float FeedbackTimer { get; set; }
-        #endregion
-
-        #region Methods
 
         public void SetPaused(bool paused)
         {
@@ -80,7 +66,6 @@ namespace Menu.Pause
 
         public void UpdateAnimations(float deltaTime)
         {
-            // Menu fade
             MenuAlpha = Mathf.MoveTowards(MenuAlpha, IsPaused ? 1f : 0f, deltaTime * PauseMenuConfig.MenuFadeSpeed);
             SettingsAlpha = Mathf.MoveTowards(SettingsAlpha, IsSettingsOpen ? 1f : 0f, deltaTime * PauseMenuConfig.SettingsFadeSpeed);
             TabPosition = Mathf.Lerp(TabPosition, SettingsTab, deltaTime * PauseMenuConfig.TabTransitionSpeed);
@@ -91,7 +76,7 @@ namespace Menu.Pause
             if (Random.value < PauseMenuConfig.GlitchProbability) GlitchTimer = PauseMenuConfig.GlitchDuration;
             GlitchTimer = Mathf.Max(0, GlitchTimer - deltaTime);
 
-            // Button scales
+            // button scales
             for (int i = 0; i < ButtonScales.Length; i++)
             {
                 float target = (i == SelectedIndex && !IsSettingsOpen) ? 1.05f : 1f;
@@ -101,7 +86,7 @@ namespace Menu.Pause
                 ButtonAnimProgress[i] = Mathf.Lerp(ButtonAnimProgress[i], animTarget, deltaTime * PauseMenuConfig.ButtonAnimSpeed);
             }
 
-            // Tooltip
+            // tooltip fade
             if (!string.IsNullOrEmpty(CurrentTooltip))
             {
                 TooltipTimer += deltaTime;
@@ -114,7 +99,7 @@ namespace Menu.Pause
                 TooltipTimer = 0f;
             }
 
-            // Feedback
+            // feedback message fade
             if (FeedbackTimer > 0f)
             {
                 FeedbackTimer -= deltaTime;
@@ -141,7 +126,5 @@ namespace Menu.Pause
                 TooltipTimer = 0f;
             }
         }
-
-        #endregion
     }
 }

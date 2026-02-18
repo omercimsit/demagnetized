@@ -1,20 +1,13 @@
 using UnityEngine;
 
-/// <summary>
-/// Centralized game configuration using ScriptableObject.
-/// Eliminates hardcoded values throughout the codebase.
-/// Create via: Assets > Create > Game > Config
-/// </summary>
+// ScriptableObject for all the config values - beats having magic numbers everywhere
+// Create via: Assets > Create > Game > Config
 [CreateAssetMenu(fileName = "GameConfig", menuName = "Game/Config", order = 0)]
 public class GameConfig : ScriptableObject
 {
-    #region Singleton Access
-
     private static GameConfig _instance;
 
-    /// <summary>
-    /// Gets the GameConfig instance. Loads from Resources/GameConfig if not found.
-    /// </summary>
+    // loads from Resources/GameConfig, creates empty one if missing
     public static GameConfig Instance
     {
         get
@@ -32,10 +25,6 @@ public class GameConfig : ScriptableObject
         }
     }
 
-    #endregion
-
-    #region Recording Settings
-
     [Header("Clone Recording")]
     [Tooltip("Maximum duration for recording player movements (seconds)")]
     [Range(1f, 30f)]
@@ -52,10 +41,6 @@ public class GameConfig : ScriptableObject
     [Range(1f, 10f)]
     public float reversePlaybackSpeed = 3f;
 
-    #endregion
-
-    #region Clone Playback
-
     [Header("Clone Playback")]
     [Tooltip("Clone transparency (0 = invisible, 1 = opaque)")]
     [Range(0f, 1f)]
@@ -70,10 +55,6 @@ public class GameConfig : ScriptableObject
 
     [Tooltip("Use bone-level playback for higher fidelity")]
     public bool useBonePlayback = true;
-
-    #endregion
-
-    #region Delta Compression
 
     [Header("Delta Compression")]
     [Tooltip("Enable delta compression to reduce memory usage")]
@@ -91,10 +72,6 @@ public class GameConfig : ScriptableObject
     [Range(0.05f, 0.5f)]
     public float maxFrameInterval = 0.1f;
 
-    #endregion
-
-    #region Time Management
-
     [Header("Time Management")]
     [Tooltip("Slow motion time scale during recording")]
     [Range(0.01f, 1f)]
@@ -108,20 +85,12 @@ public class GameConfig : ScriptableObject
     [Range(0.5f, 20f)]
     public float timeTransitionSpeed = 2.5f;
 
-    #endregion
-
-    #region Scene Names
-
     [Header("Scene Names")]
     [Tooltip("Scenes that should skip pause menu")]
     public string[] scenesToIgnorePause = { "Menu", "Main", "Loading" };
 
     [Tooltip("Main menu scene name")]
     public string mainMenuSceneName = "MainMenu";
-
-    #endregion
-
-    #region Component Filters
 
     [Header("Clone Component Removal")]
     [Tooltip("Component name patterns to remove from clones")]
@@ -134,17 +103,9 @@ public class GameConfig : ScriptableObject
         "Motion"
     };
 
-    #endregion
-
-    #region Audio
-
     [Header("Audio Resources")]
     [Tooltip("Pause menu music clip name in Resources")]
     public string pauseMenuMusicPath = "Analog Corridor of Teeth";
-
-    #endregion
-
-    #region Interaction
 
     [Header("Interaction System")]
     [Tooltip("Raycast check interval for interaction (seconds)")]
@@ -155,13 +116,8 @@ public class GameConfig : ScriptableObject
     [Range(1f, 10f)]
     public float defaultInteractionRange = 3f;
 
-    #endregion
-
-    #region Validation
-
     private void OnValidate()
     {
-        // Clamp values to valid ranges
         maxRecordDuration = Mathf.Clamp(maxRecordDuration, 1f, 30f);
         baseRecordInterval = Mathf.Clamp(baseRecordInterval, 0.01f, 0.1f);
         highPrecisionInterval = Mathf.Clamp(highPrecisionInterval, 0.01f, 0.05f);
@@ -171,13 +127,6 @@ public class GameConfig : ScriptableObject
         normalTimeScale = Mathf.Clamp(normalTimeScale, 0.1f, 2f);
     }
 
-    #endregion
-
-    #region Helper Methods
-
-    /// <summary>
-    /// Checks if a scene should ignore the pause menu.
-    /// </summary>
     public bool ShouldIgnorePause(string sceneName)
     {
         if (scenesToIgnorePause == null) return false;
@@ -190,9 +139,7 @@ public class GameConfig : ScriptableObject
         return false;
     }
 
-    /// <summary>
-    /// Checks if a component should be removed from clones.
-    /// </summary>
+    // TODO: clean this up later, string matching is kinda fragile
     public bool ShouldRemoveComponent(string componentTypeName)
     {
         if (componentsToRemove == null) return false;
@@ -204,6 +151,4 @@ public class GameConfig : ScriptableObject
         }
         return false;
     }
-
-    #endregion
 }

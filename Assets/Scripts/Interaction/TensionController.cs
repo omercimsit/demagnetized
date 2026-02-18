@@ -4,21 +4,14 @@ using CloneSystem;
 
 namespace Interaction.KineticTension
 {
-    /// <summary>
-    /// Tension Controller - Clone System Integration
-    ///
-    /// [T] KEY = Grab / release chain (manual)
-    /// [R] KEY = Start clone recording (AAACloneSystem)
-    /// If the chain is held during recording, the clone will also hold it.
-    ///
-    /// KINEMATION INTEGRATION:
-    /// ChainHandIK modifier binds to IKTargetTransform property for runtime IK targeting.
-    /// </summary>
+    // [T] = grab / release chain
+    // [R] = start clone recording (handled by AAACloneSystem)
+    // If you're holding the chain while recording, the clone will hold it too during playback.
+    //
+    // KINEMATION: ChainHandIK modifier binds to IKTargetTransform for runtime IK targeting.
     public class TensionController : MonoBehaviour
     {
-        #region Configuration
-
-        [Header("=== DETECTION ===")]
+        [Header("Detection")]
         [Tooltip("Radius to detect nearby chains")]
         [SerializeField] private float detectionRadius = 3f;
 
@@ -28,13 +21,12 @@ namespace Interaction.KineticTension
         [Tooltip("Auto-grab chain when recording starts near chain")]
         [SerializeField] private bool autoGrabOnRecording = false;
 
-        [Header("=== INPUT ===")]
-        #pragma warning disable CS0414
+        [Header("Input")]
         [Tooltip("Key to grab/release chain")]
+        // TODO: migrate grabKey to InputActionReference so it respects rebinding
         [SerializeField] private KeyCode grabKey = KeyCode.T;
-        #pragma warning restore CS0414
 
-        [Header("=== IK SETTINGS ===")]
+        [Header("IK Settings")]
         [Tooltip("Right hand IK target (created at runtime if null)")]
         [SerializeField] private Transform rightHandTarget;
 
@@ -44,40 +36,25 @@ namespace Interaction.KineticTension
         [Tooltip("IK weight blend speed")]
         [SerializeField] private float ikBlendSpeed = 5f;
 
-        [Header("=== PLAYER FEEDBACK ===")]
+        [Header("Player Feedback")]
         [Tooltip("How much the player leans back when pulling")]
         [SerializeField] private float maxLeanAngle = 15f;
 
         [Tooltip("Camera shake intensity at max tension")]
         [SerializeField] private float maxCameraShake = 0.1f;
 
-        [Header("=== REFERENCES ===")]
+        [Header("References")]
         [SerializeField] private Animator playerAnimator;
         [SerializeField] private Transform cameraTransform;
 
-        #endregion
-
-        #region KINEMATION Binding Properties
-
-        /// <summary>
-        /// Public property for KINEMATION BindableProperty binding.
-        /// ChainHandIK modifier should bind to: TensionController.IKTargetTransform
-        /// Returns the current IK target (chain grab point) when pulling, null otherwise.
-        /// </summary>
+        // KINEMATION binding - ChainHandIK modifier should bind to TensionController.IKTargetTransform
         public Transform IKTargetTransform => _isPulling && rightHandTarget != null ? rightHandTarget : null;
 
-        /// <summary>
-        /// Current IK weight (0-1) for the chain grab.
-        /// ChainHandIK modifier can bind to this via: TensionController.ChainIKWeight
-        /// </summary>
+        // 0-1 weight for the chain IK, ChainHandIK can bind to this
         public float ChainIKWeight => _currentIKWeight;
 
-        #endregion
-
-        #region Runtime State
-
         private ChainInteractable _currentChain;
-        private ChainInteractable _nearbyChain; // Nearest chain (grabbed when recording starts)
+        private ChainInteractable _nearbyChain;
         private bool _isPulling;
         private float _currentIKWeight;
 
@@ -95,10 +72,6 @@ namespace Interaction.KineticTension
 
         private bool _wasHoldingDuringRecording;
         private float _progressAtRecordingEnd;
-
-        #endregion
-
-        #region Lifecycle
 
         private void Awake()
         {
@@ -129,11 +102,11 @@ namespace Interaction.KineticTension
 
             if (_cloneSystem != null)
             {
-                Debug.Log("[TensionController] Connected to AAACloneSystem - Listening for Recording phase");
+                Debug.Log("[TensionController] Connected to CloneSystem");
             }
             else
             {
-                Debug.LogWarning("[TensionController] AAACloneSystem not found!");
+                Debug.LogWarning("[TensionController] CloneSystem not found!");
             }
 
             GameEvents.OnRecordingStarted += OnRecordingStarted;
@@ -164,14 +137,9 @@ namespace Interaction.KineticTension
             UpdateHaptics();
 
             if (_isPulling && _currentChain != null)
-            {
                 UpdatePulling();
-            }
         }
 
-        /// <summary>
-        /// Grab or release chain with [T] key.
-        /// </summary>
         private void HandleGrabInput()
         {
             var keyboard = Keyboard.current;
@@ -181,28 +149,24 @@ namespace Interaction.KineticTension
 
             if (tPressed)
             {
-                Debug.Log("[TensionController] T KEY PRESSED!");
+                Debug.Log("[TensionController] T pressed");
 
                 if (_isPulling)
                 {
                     StopPulling();
-                    Debug.Log("[TensionController] [T] Chain released");
+                    Debug.Log("[TensionController] chain released");
                 }
                 else if (_nearbyChain != null && _nearbyChain.CanInteract(transform))
                 {
                     StartPulling(_nearbyChain);
-                    Debug.Log("[TensionController] [T] Chain grabbed");
+                    Debug.Log("[TensionController] chain grabbed");
                 }
                 else
                 {
-                    Debug.Log($"[TensionController] [T] No nearby chain! nearbyChain={_nearbyChain}");
+                    Debug.Log($"[TensionController] nothing to grab (nearbyChain={_nearbyChain})");
                 }
             }
         }
-
-        #endregion
-
-        #region Clone System Integration
 
         private void CheckCloneSystemPhase()
         {
@@ -219,55 +183,41 @@ namespace Interaction.KineticTension
 
         private void OnPhaseChanged(AAACloneSystem.Phase oldPhase, AAACloneSystem.Phase newPhase)
         {
-            Debug.Log($"[TensionController] Phase changed: {oldPhase} -> {newPhase}");
+            Debug.Log($"[TensionController] phase: {oldPhase} -> {newPhase}");
 
-            // Auto-grab chain when recording starts if nearby
             if (newPhase == AAACloneSystem.Phase.Recording && autoGrabOnRecording)
             {
                 if (_nearbyChain != null && _nearbyChain.CanInteract(transform))
-                {
                     StartPulling(_nearbyChain);
-                }
             }
-            // Recording ended: stop pulling but mark that clone should hold
             else if (oldPhase == AAACloneSystem.Phase.Recording && newPhase != AAACloneSystem.Phase.Recording)
             {
                 if (_isPulling)
                 {
                     _wasHoldingDuringRecording = true;
                     if (_currentChain != null)
-                    {
                         _progressAtRecordingEnd = _currentChain.CurrentProgress;
-                    }
 
                     StopPulling();
                 }
             }
         }
 
-        /// <summary>
-        /// Called via GameEvents when recording starts.
-        /// </summary>
         private void OnRecordingStarted()
         {
-            Debug.Log("[TensionController] Recording started via GameEvents");
+            Debug.Log("[TensionController] recording started (GameEvents)");
 
-            // Fallback: phase check handles this, but keep as backup
+            // phase change handles this normally, this is just a safety net
             if (autoGrabOnRecording && _nearbyChain != null && !_isPulling)
             {
                 if (_nearbyChain.CanInteract(transform))
-                {
                     StartPulling(_nearbyChain);
-                }
             }
         }
 
-        /// <summary>
-        /// Called via GameEvents when recording stops.
-        /// </summary>
         private void OnRecordingStopped()
         {
-            Debug.Log("[TensionController] Recording stopped via GameEvents");
+            Debug.Log("[TensionController] recording stopped");
 
             if (_isPulling && _currentChain != null)
             {
@@ -277,48 +227,32 @@ namespace Interaction.KineticTension
             }
         }
 
-        /// <summary>
-        /// Clone playback started - clone should hold the chain if player was holding during recording.
-        /// </summary>
         private void OnPlaybackStarted()
         {
-            Debug.Log("[TensionController] Playback started");
+            Debug.Log("[TensionController] playback started");
 
             if (_wasHoldingDuringRecording && _currentChain != null)
             {
                 _currentChain.CloneHold();
-                Debug.Log($"[TensionController] Clone holding chain at {_progressAtRecordingEnd:P0}");
+                Debug.Log($"[TensionController] clone holding chain at {_progressAtRecordingEnd:P0}");
             }
         }
 
-        /// <summary>
-        /// Clone playback ended.
-        /// </summary>
         private void OnPlaybackEnded()
         {
-            Debug.Log("[TensionController] Playback ended");
+            Debug.Log("[TensionController] playback ended");
 
             if (_currentChain != null)
-            {
                 _currentChain.CloneRelease();
-            }
 
             _wasHoldingDuringRecording = false;
         }
 
-        #endregion
-
-        #region Chain Detection
-
-        // Cached chain array - refreshed every CHAIN_CACHE_INTERVAL seconds
+        // cache refreshed every 0.3s so we're not calling FindObjectsByType every frame
         private ChainInteractable[] _cachedChains;
         private float _lastChainCacheTime;
         private const float CHAIN_CACHE_INTERVAL = 0.3f;
 
-        /// <summary>
-        /// Scans for the nearest interactable chain within detection radius.
-        /// Uses a cached FindObjectsByType result refreshed every 0.3 seconds.
-        /// </summary>
         private void ScanForNearbyChain()
         {
             if (_cachedChains == null || Time.time - _lastChainCacheTime > CHAIN_CACHE_INTERVAL)
@@ -350,18 +284,12 @@ namespace Interaction.KineticTension
             _nearbyChain = closest;
         }
 
-        /// <summary>
-        /// Force refresh chain cache (call when new chains are spawned).
-        /// </summary>
+        // call this when new chains are spawned at runtime
         public void RefreshChainCache()
         {
             _cachedChains = null;
             _lastChainCacheTime = 0;
         }
-
-        #endregion
-
-        #region Pulling Logic
 
         private void StartPulling(ChainInteractable chain)
         {
@@ -375,10 +303,10 @@ namespace Interaction.KineticTension
             _currentChain.OnMaxTensionReached += OnMaxTension;
             _currentChain.OnProgressChanged += OnProgressChanged;
 
-            // NOTE: KINEMATION doesn't use IsPulling/TensionAmount parameters
-            // Animator calls removed to prevent warning spam
+            // NOTE: KINEMATION animator doesn't have IsPulling/TensionAmount params
+            // leaving out Animator.SetBool calls to avoid console spam
 
-            Debug.Log($"[TensionController] Started pulling {chain.name}");
+            Debug.Log($"[TensionController] pulling {chain.name}");
         }
 
         private void StopPulling()
@@ -394,12 +322,9 @@ namespace Interaction.KineticTension
                 _currentChain.StopPull();
             }
 
-            // NOTE: KINEMATION doesn't use IsPulling/TensionAmount parameters
-            // Animator calls removed to prevent warning spam
-
             _shakeIntensity = 0f;
 
-            Debug.Log("[TensionController] Stopped pulling");
+            Debug.Log("[TensionController] stopped pulling");
         }
 
         private void UpdatePulling()
@@ -420,7 +345,7 @@ namespace Interaction.KineticTension
 
             float pullInput = 0f;
 
-            // S key = pull (moving backward pulls the chain toward you)
+            // S = pull toward you (moving back relative to chain)
             if (keyboard.sKey.isPressed)
             {
                 pullInput = 1f;
@@ -430,39 +355,26 @@ namespace Interaction.KineticTension
                 Vector3 moveDir = transform.forward * moveY;
                 float movingAwayDot = Vector3.Dot(moveDir, -toChain);
                 if (movingAwayDot > 0.3f)
-                {
                     pullInput = movingAwayDot;
-                }
             }
 
             if (pullInput > 0.01f)
-            {
                 _currentChain.ApplyPullInput(pullInput);
-            }
         }
-
-        #endregion
-
-        #region Event Handlers
 
         private void OnMaxTension()
         {
             TriggerCameraShake(maxCameraShake, 0.5f);
-            Debug.Log("[TensionController] MAX TENSION! Solo limit reached - need Clone help!");
+            Debug.Log("[TensionController] max tension reached - need clone to help!");
         }
 
         private void OnProgressChanged(float progress)
         {
-            // NOTE: Animator parameter "TensionAmount" doesn't exist in KINEMATION animator
-            // Skipping animator update to prevent warning spam
-
+            // Animator "TensionAmount" doesn't exist in the KINEMATION controller, skip it
             _shakeIntensity = progress * maxCameraShake * 0.3f;
         }
 
-        #endregion
-
-        #region IK System
-
+        // KINEMATION reflection fields - fragile but necessary until we have a proper binding API
         private KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Core.ProceduralAnimationComponent _casComponent;
         private KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Modifiers.IK.TwoBoneIkSettings _chainIkSettings;
 
@@ -479,12 +391,12 @@ namespace Interaction.KineticTension
 
             if (_casComponent != null)
             {
-                Debug.Log("[TensionController] Found CAS Component. Looking for TwoBoneIK modifier...");
+                Debug.Log("[TensionController] found CAS component, searching for TwoBoneIK...");
                 FindModifier();
             }
             else
             {
-                Debug.LogWarning("[TensionController] CAS Component not found!");
+                Debug.LogWarning("[TensionController] CAS component not found");
             }
 
             EnsureRightHandTarget();
@@ -508,13 +420,13 @@ namespace Interaction.KineticTension
                 return;
             }
 
-            // Create under player root (not under a bone)
+            // nothing found, create one under player root
             var go = new GameObject("ChainHandTarget");
             Transform playerRoot = transform.root;
             go.transform.SetParent(playerRoot);
             go.transform.localPosition = new Vector3(0.5f, 1.2f, 0.3f);
             rightHandTarget = go.transform;
-            Debug.Log("[TensionController] Created ChainHandTarget under player root");
+            Debug.Log("[TensionController] created ChainHandTarget under player root");
         }
 
         private void FindModifier()
@@ -530,14 +442,14 @@ namespace Interaction.KineticTension
 
                 if (settingsField == null)
                 {
-                    Debug.LogError("[TensionController] Could not find 'proceduralSettings' field!");
+                    Debug.LogError("[TensionController] 'proceduralSettings' field not found");
                     return;
                 }
 
                 var settingsObj = settingsField.GetValue(_casComponent);
                 if (settingsObj == null)
                 {
-                    Debug.LogError("[TensionController] 'proceduralSettings' is null! Assign a ProceduralSettings asset.");
+                    Debug.LogError("[TensionController] 'proceduralSettings' is null - assign a PA asset");
                     return;
                 }
 
@@ -548,18 +460,18 @@ namespace Interaction.KineticTension
 
                 if (modifiersField == null)
                 {
-                    Debug.LogError("[TensionController] Could not find 'modifiers' field!");
+                    Debug.LogError("[TensionController] 'modifiers' field not found");
                     return;
                 }
 
                 var settingsList = modifiersField.GetValue(settingsObj) as System.Collections.IList;
                 if (settingsList == null)
                 {
-                    Debug.LogError("[TensionController] Modifiers list is null!");
+                    Debug.LogError("[TensionController] modifiers list is null");
                     return;
                 }
 
-                Debug.Log($"[TensionController] Searching {settingsList.Count} modifiers...");
+                Debug.Log($"[TensionController] checking {settingsList.Count} modifiers...");
 
                 foreach (var setting in settingsList)
                 {
@@ -596,23 +508,24 @@ namespace Interaction.KineticTension
                                 if (_setDefaultValueMethod != null && rightHandTarget != null)
                                 {
                                     _setDefaultValueMethod.Invoke(_ikTargetBindableProperty, new object[] { rightHandTarget });
-                                    Debug.Log($"[TensionController] Set ikTargetTransform.defaultValue to {rightHandTarget.name}");
+                                    Debug.Log($"[TensionController] ikTargetTransform bound to {rightHandTarget.name}");
                                 }
                             }
                         }
 
                         _ikInitialized = true;
-                        Debug.Log($"[TensionController] Found and initialized TwoBoneIK modifier: '{obj.name}'");
+                        Debug.Log($"[TensionController] TwoBoneIK modifier found: '{obj.name}'");
                         return;
                     }
                 }
 
-                Debug.LogWarning("[TensionController] No matching TwoBoneIK modifier found. " +
+                // TODO: auto-create the modifier if missing instead of just warning
+                Debug.LogWarning("[TensionController] no matching TwoBoneIK modifier found. " +
                     "Run Tools/Kinetic Tension/Setup Chain Hand IK");
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[TensionController] Reflection error: {e.Message}\n{e.StackTrace}");
+                Debug.LogError($"[TensionController] reflection error: {e.Message}\n{e.StackTrace}");
             }
         }
 
@@ -636,30 +549,24 @@ namespace Interaction.KineticTension
                 try
                 {
                     if (_alphaField != null)
-                    {
                         _alphaField.SetValue(_chainIkSettings, _currentIKWeight);
-                    }
 
                     if (_setDefaultValueMethod != null && rightHandTarget != null && _currentIKWeight > 0.01f)
-                    {
                         _setDefaultValueMethod.Invoke(_ikTargetBindableProperty, new object[] { rightHandTarget });
-                    }
                 }
                 catch (System.Exception)
                 {
-                    // Silently ignore to prevent spam
+                    // swallow to avoid log spam every frame
                 }
             }
             else if (!_ikInitialized && Time.frameCount % 120 == 0)
             {
+                // retry periodically in case PA wasn't ready at Start
                 FindModifier();
             }
         }
 
-        /// <summary>
-        /// Unity's built-in IK callback - fallback if KINEMATION IK is unavailable.
-        /// Requires an Animator with IK Pass enabled on the animation layer.
-        /// </summary>
+        // fallback for when KINEMATION IK isn't set up - needs IK Pass enabled on animator layer
         private void OnAnimatorIK(int layerIndex)
         {
             if (playerAnimator == null) return;
@@ -675,10 +582,6 @@ namespace Interaction.KineticTension
             playerAnimator.SetLookAtPosition(rightHandTarget.position);
         }
 
-        #endregion
-
-        #region Visual Feedback
-
         private void UpdateLean()
         {
             if (!_isPulling || _currentChain == null) return;
@@ -687,7 +590,7 @@ namespace Interaction.KineticTension
             Vector3 toChain = (_currentChain.GetGrabPosition() - transform.position).normalized;
 
             float leanAmount = tension * maxLeanAngle;
-            // Apply lean via animation layer
+            // FIXME: lean isn't actually applied anywhere yet, need an animation layer for this
         }
 
         private void TriggerCameraShake(float intensity, float duration)
@@ -724,9 +627,6 @@ namespace Interaction.KineticTension
             }
         }
 
-        /// <summary>
-        /// Gamepad haptic feedback based on chain tension.
-        /// </summary>
         private void UpdateHaptics()
         {
             var gamepad = Gamepad.current;
@@ -739,6 +639,7 @@ namespace Interaction.KineticTension
                 float lowFreq = tension * 0.4f;
                 float highFreq = tension * tension * 0.6f;
 
+                // pulse at near-max tension for extra drama
                 if (tension > 0.95f)
                 {
                     float pulse = Mathf.Sin(Time.time * 20f) * 0.3f + 0.7f;
@@ -753,28 +654,11 @@ namespace Interaction.KineticTension
             }
         }
 
-        #endregion
-
-        #region Public API
-
-        /// <summary>Currently pulling a chain.</summary>
         public bool IsCurrentlyPulling => _isPulling;
-
-        /// <summary>Current chain being pulled.</summary>
         public ChainInteractable CurrentChain => _currentChain;
-
-        /// <summary>Nearest chain within detection radius.</summary>
         public ChainInteractable NearbyChain => _nearbyChain;
-
-        /// <summary>Was the chain held during the last recording session.</summary>
         public bool WasHoldingDuringRecording => _wasHoldingDuringRecording;
-
-        /// <summary>Chain progress value at the moment recording ended.</summary>
         public float ProgressAtRecordingEnd => _progressAtRecordingEnd;
-
-        #endregion
-
-        #region Gizmos
 
         private void OnDrawGizmosSelected()
         {
@@ -794,7 +678,5 @@ namespace Interaction.KineticTension
                 Gizmos.DrawLine(transform.position + Vector3.up, _currentChain.GetGrabPosition());
             }
         }
-
-        #endregion
     }
 }

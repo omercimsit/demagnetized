@@ -1,77 +1,71 @@
 using UnityEngine;
 
+// disabled by default because it was causing camera shake issues
+// turn it on from the inspector if you want the bob effect back
 namespace CAS_Demo.Scripts.FPS
 {
-    /// <summary>
-    /// Camera Effects System - DISABLED BY DEFAULT
-    /// Head bob effects have been disabled to fix camera shaking.
-    /// Enable manually if you want subtle camera movement.
-    /// </summary>
     public class HeadBob : MonoBehaviour
     {
-        [Header("=== MASTER SWITCH ===")]
+        [Header("Master Switch")]
         [Tooltip("Enable for realistic camera movement")]
-        [SerializeField] private bool enableAllEffects = true;  // ENABLED BY DEFAULT
-        
+        [SerializeField] private bool enableAllEffects = true;
+
         [Header("Individual Toggles")]
         [SerializeField] private bool enableHeadBob = true;
         [SerializeField] private bool enableTilt = true;
         [SerializeField] private bool enableImpact = true;
-        
-        [Header("Bob Settings (Premium Feel)")]
+
+        [Header("Bob Settings")]
         [SerializeField] private float walkBobSpeed = 8f;
-        [SerializeField] private float walkBobAmount = 0.05f;    // Increased for better feel
+        [SerializeField] private float walkBobAmount = 0.05f;
         [SerializeField] private float sprintBobAmount = 0.08f;
-        #pragma warning disable CS0414
         [SerializeField] private float idleBobAmount = 0.015f;
-        #pragma warning restore CS0414
-        
+
         [Header("Impact Settings")]
-        [SerializeField] private float landImpactAmount = 0.15f; // More impact
+        [SerializeField] private float landImpactAmount = 0.15f;
         [SerializeField] private float impactRecoverySpeed = 10f;
-        
+
         [Header("Tilt Settings")]
         [SerializeField] private float tiltAmount = 0.2f;
-        
+
         [Header("Smoothing")]
         [SerializeField] private float smoothing = 25f;
         [SerializeField] private float movementThreshold = 0.2f;
-        
-        // Internal
+
         private float _timer;
         private Vector3 _defaultLocalPos;
         private float _impactOffsetY;
         private float _currentTilt;
         private Vector3 _smoothedVelocity;
         private Vector3 _currentOffset;
-        
+
         private Transform _cameraTransform;
         private CharacterController _controller;
         private bool _wasGrounded;
         private bool _isInitialized;
-        
+
         private void Start()
         {
-            // If all effects are disabled, skip initialization
             if (!enableAllEffects)
             {
-                Debug.Log("[HeadBob] All effects DISABLED - no camera shake");
+                Debug.Log("[HeadBob] effects disabled");
                 enabled = false;
                 return;
             }
-            
+
             InitializeCamera();
         }
-        
+
         private void InitializeCamera()
         {
+            // TODO: should probably cache this earlier, finding Camera.main every init is wasteful
             _cameraTransform = Camera.main?.transform;
-            
+
             if (_cameraTransform == null)
                 _cameraTransform = GetComponentInChildren<Camera>()?.transform;
-            
+
             _controller = GetComponentInParent<CharacterController>();
-            
+
             if (_cameraTransform != null && _controller != null)
             {
                 _defaultLocalPos = _cameraTransform.localPosition;
@@ -81,30 +75,28 @@ namespace CAS_Demo.Scripts.FPS
             {
                 enabled = false;
             }
-            
+
             _wasGrounded = true;
         }
-        
+
         private void LateUpdate()
         {
-            // Early exit if disabled or during slow-mo (prevents jittery camera during clone playback)
+            // skip during slow-mo so clone playback doesn't get jittery camera
             if (!enableAllEffects || !_isInitialized) return;
-            if (Time.timeScale < 0.5f) return; // Skip during slow-mo for smooth experience
-            
+            if (Time.timeScale < 0.5f) return;
+
             float dt = Time.unscaledDeltaTime;
-            dt = Mathf.Min(dt, 0.033f); // Cap at 30fps minimum
-            
-            // Smooth velocity
+            dt = Mathf.Min(dt, 0.033f);
+
             if (_controller != null)
             {
                 Vector3 vel = _controller.velocity;
                 vel.y = 0;
                 _smoothedVelocity = Vector3.Lerp(_smoothedVelocity, vel, dt * 8f);
             }
-            
+
             Vector3 targetOffset = Vector3.zero;
-            
-            // Head bob (if enabled)
+
             if (enableHeadBob)
             {
                 float speed = _smoothedVelocity.magnitude;
@@ -116,8 +108,8 @@ namespace CAS_Demo.Scripts.FPS
                     targetOffset.y = Mathf.Sin(_timer * 2f) * bobAmount * 0.5f;
                 }
             }
-            
-            // Impact (if enabled)
+
+            // FIXME: sometimes flickers on first frame after landing, not sure why
             if (enableImpact)
             {
                 bool isGrounded = _controller.isGrounded;
@@ -126,47 +118,42 @@ namespace CAS_Demo.Scripts.FPS
                     _impactOffsetY -= landImpactAmount;
                 }
                 _wasGrounded = isGrounded;
-                
+
                 _impactOffsetY = Mathf.Lerp(_impactOffsetY, 0f, dt * impactRecoverySpeed);
                 targetOffset.y += _impactOffsetY;
             }
-            
-            // Apply position
+
             _currentOffset = Vector3.Lerp(_currentOffset, targetOffset, dt * smoothing);
             _cameraTransform.localPosition = Vector3.Lerp(
                 _cameraTransform.localPosition,
                 _defaultLocalPos + _currentOffset,
                 dt * smoothing
             );
-            
-            // Tilt (if enabled)
+
             if (enableTilt)
             {
                 float sideways = transform.InverseTransformDirection(_smoothedVelocity).x;
-                float targetTilt = Mathf.Abs(sideways) > movementThreshold 
-                    ? Mathf.Clamp(-sideways * tiltAmount * 0.1f, -tiltAmount, tiltAmount) 
+                float targetTilt = Mathf.Abs(sideways) > movementThreshold
+                    ? Mathf.Clamp(-sideways * tiltAmount * 0.1f, -tiltAmount, tiltAmount)
                     : 0f;
                 _currentTilt = Mathf.Lerp(_currentTilt, targetTilt, dt * 8f);
-                
+
                 Vector3 euler = _cameraTransform.localEulerAngles;
                 _cameraTransform.localRotation = Quaternion.Euler(euler.x, euler.y, _currentTilt);
             }
         }
-        
-        /// <summary>
-        /// Enable or disable all camera effects at runtime
-        /// </summary>
+
+        // call this from the pause menu or whatever to toggle effects at runtime
         public void SetEnabled(bool enable)
         {
             enableAllEffects = enable;
-            
+
             if (enable && !_isInitialized)
             {
                 InitializeCamera();
             }
             else if (!enable)
             {
-                // Reset camera position
                 if (_cameraTransform != null)
                 {
                     _cameraTransform.localPosition = _defaultLocalPos;

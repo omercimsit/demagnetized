@@ -7,18 +7,18 @@ using KINEMATION.CharacterAnimationSystem.Scripts.Runtime.Modifiers.BoneControls
 
 public class AssignFootIKBones : MonoBehaviour
 {
-    // Correct bone names for "3D Game Character" skeleton
-    // Verified from DiagnoseCharacter skeleton dump
+    // bone names for "3D Game Character" - verified from DiagnoseCharacter dump
+    // NOTE: these are totally different from Banana Man names, don't mix them up
     private const string PELVIS = "root.x";
-    private const string RIGHT_FOOT_IK = "ik_foot.r";   // Separate IK target bones created by CreateIKBones
+    private const string RIGHT_FOOT_IK = "ik_foot.r";   // separate IK target bones, created by CreateIKBones
     private const string LEFT_FOOT_IK = "ik_foot.l";
     private const string RIGHT_FOOT = "foot.r";
     private const string LEFT_FOOT = "foot.l";
     private const string RIGHT_LEG = "leg_stretch.r";
     private const string LEFT_LEG = "leg_stretch.l";
-    private const string RIGHT_KNEE_POLE = "ik_knee_pole.r";  // Dedicated knee pole targets
+    private const string RIGHT_KNEE_POLE = "ik_knee_pole.r";
     private const string LEFT_KNEE_POLE = "ik_knee_pole.l";
-    private const string RIGHT_HAND_IK = "ik_hand.r";   // Separate IK target bones
+    private const string RIGHT_HAND_IK = "ik_hand.r";
     private const string LEFT_HAND_IK = "ik_hand.l";
     private const string RIGHT_HAND = "hand.r";
     private const string LEFT_HAND = "hand.l";
@@ -30,14 +30,13 @@ public class AssignFootIKBones : MonoBehaviour
     {
         int fixed_count = 0;
 
-        // Fix PA_FPS_3DGameChar.asset (the MAIN PA used by the player)
+        // main PA used by player
         fixed_count += FixPAAsset("Assets/KBP01/FBX/PA_FPS_3DGameChar.asset");
 
-        // Fix legacy PA paths
+        // legacy paths, probably overkill but just in case they're still referenced somewhere
         fixed_count += FixPAAsset("Assets/PA_Banana Man.asset");
         fixed_count += FixPAAsset("Assets/_Project/PA_FootIK_Fixed.asset");
 
-        // Fix standalone Step assets (referenced by FPSExampleController)
         fixed_count += FixStandaloneSteps();
 
         AssetDatabase.SaveAssets();
@@ -148,7 +147,7 @@ public class AssignFootIKBones : MonoBehaviour
                 {
                     if (isHand)
                     {
-                        // Hands use world targets (weapon grips), NOT bone IK targets
+                        // hands use world targets for weapon grips, NOT bone IK targets
                         SetBone(so, "tip", RIGHT_HAND);
                         SetBone(so, "target", RIGHT_HAND);
                         SetBone(so, "poleTarget", RIGHT_FOREARM);
@@ -164,7 +163,7 @@ public class AssignFootIKBones : MonoBehaviour
                 {
                     if (isHand)
                     {
-                        // Hands use world targets (weapon grips), NOT bone IK targets
+                        // same deal for left hand
                         SetBone(so, "tip", LEFT_HAND);
                         SetBone(so, "target", LEFT_HAND);
                         SetBone(so, "poleTarget", LEFT_FOREARM);
@@ -186,18 +185,17 @@ public class AssignFootIKBones : MonoBehaviour
             }
             else if (mod is FullBodyIkSettings)
             {
-                // Hand IK: target=same as tip (hands use world targets, not bone targets)
+                // hand IK: target = same as tip (weapon grip handled elsewhere)
                 SetBone(so, "rightHandIk.tip", RIGHT_HAND);
                 SetBone(so, "rightHandIk.target", RIGHT_HAND);
                 SetBone(so, "rightHandIk.poleTarget", RIGHT_FOREARM);
                 SetBone(so, "leftHandIk.tip", LEFT_HAND);
                 SetBone(so, "leftHandIk.target", LEFT_HAND);
                 SetBone(so, "leftHandIk.poleTarget", LEFT_FOREARM);
-                // Right Foot IK: foot → lower leg → thigh chain, knee pole for bend direction
+                // foot IK chain: foot -> lower leg -> thigh, knee pole controls bend direction
                 SetBone(so, "rightFootIk.tip", RIGHT_FOOT);
                 SetBone(so, "rightFootIk.target", RIGHT_FOOT_IK);
                 SetBone(so, "rightFootIk.poleTarget", RIGHT_KNEE_POLE);
-                // Left Foot IK
                 SetBone(so, "leftFootIk.tip", LEFT_FOOT);
                 SetBone(so, "leftFootIk.target", LEFT_FOOT_IK);
                 SetBone(so, "leftFootIk.poleTarget", LEFT_KNEE_POLE);
@@ -224,7 +222,7 @@ public class AssignFootIKBones : MonoBehaviour
         var indexProp = prop.FindPropertyRelative("index");
 
         if (nameProp != null) nameProp.stringValue = boneName;
-        if (indexProp != null) indexProp.intValue = -1;
+        if (indexProp != null) indexProp.intValue = -1; // -1 forces name lookup at runtime
     }
 }
 #endif

@@ -4,11 +4,9 @@ using CloneGame.Core;
 
 namespace CloneProject
 {
-    /// <summary>
-    /// Handles character visual swap during portal transitions.
-    /// IMPORTANT: KINEMATION characters cannot be SetActive(false) - it crashes animation jobs!
-    /// Instead, we hide/show renderers while keeping the animation system running.
-    /// </summary>
+    // Swaps the visible character during portal transitions.
+    // KINEMATION can't be SetActive(false) - that crashes animation jobs.
+    // So we just toggle renderers and keep the whole GO alive.
     public class KinemationPortalSwap : MonoBehaviour
     {
         public static KinemationPortalSwap Instance { get; private set; }
@@ -18,7 +16,7 @@ namespace CloneProject
         public GameObject simpleCharacterPrefab;
 
         [Header("Debug")]
-        public bool verboseDebug = false; // Disabled by default
+        public bool verboseDebug = false;
 
         private GameObject _simpleCharacterInstance;
         private bool _isSwapped = false;
@@ -35,7 +33,7 @@ namespace CloneProject
                 if (cam == null) continue;
 
                 cam.enabled = false;
-                // Prevent camera ownership conflicts when portal mesh is swapped.
+                // untag so it doesn't accidentally become MainCamera
                 cam.tag = "Untagged";
 
                 var listener = cam.GetComponent<AudioListener>();
@@ -45,7 +43,6 @@ namespace CloneProject
 
         private void Awake()
         {
-            // Singleton pattern - don't override if this is a clone
             if (Instance != null && Instance != this)
             {
                 if (verboseDebug) Debug.Log("[KinemationPortalSwap] Clone detected, skipping");
@@ -60,7 +57,6 @@ namespace CloneProject
 
             if (kinemationCharacter != null)
             {
-                // Cache renderers for fast show/hide
                 _kinemationRenderers = kinemationCharacter.GetComponentsInChildren<Renderer>();
                 _casComponent = kinemationCharacter.GetComponent<CharacterAnimationComponent>();
             }
@@ -79,17 +75,15 @@ namespace CloneProject
                 _simpleCharacterInstance.name = "SimplePlayer_ForPortal";
                 _simpleCharacterInstance.SetActive(false);
 
-                // Destroy ALL scripts - we only need the visual mesh for portal rendering
+                // strip all scripts - we only want the mesh for portal rendering
                 foreach (var mono in _simpleCharacterInstance.GetComponentsInChildren<MonoBehaviour>())
                 {
                     Destroy(mono);
                 }
 
-                // Disable CharacterController to prevent physics conflicts
                 var cc = _simpleCharacterInstance.GetComponent<CharacterController>();
                 if (cc != null) cc.enabled = false;
 
-                // Ensure visual-only proxy cannot ever hijack the player's FPS camera.
                 DisableSimpleCharacterCameras(_simpleCharacterInstance);
 
                 if (verboseDebug) Debug.Log("[KinemationPortalSwap] Simple character ready");
@@ -100,10 +94,8 @@ namespace CloneProject
             }
         }
 
-        /// <summary>
-        /// Swap to simple character for portal rendering.
-        /// KINEMATION stays active but hidden - prevents animation job crashes!
-        /// </summary>
+        // hide KINEMATION renderers and show the simple proxy instead
+        // don't SetActive(false) the KINEMATION GO or the animation jobs will crash
         public void SwapToSimple()
         {
             if (_isSwapped || kinemationCharacter == null || _simpleCharacterInstance == null)
@@ -112,12 +104,9 @@ namespace CloneProject
                 return;
             }
 
-            // Position the simple character
             _simpleCharacterInstance.transform.localPosition = kinemationCharacter.transform.localPosition;
             _simpleCharacterInstance.transform.localRotation = kinemationCharacter.transform.localRotation;
 
-            // CRITICAL: Don't SetActive(false) on KINEMATION character!
-            // Just hide renderers - animation jobs keep running safely
             SetKinemationRenderersVisible(false);
             _simpleCharacterInstance.SetActive(true);
 
@@ -126,9 +115,7 @@ namespace CloneProject
             if (verboseDebug) Debug.Log("[KinemationPortalSwap] >>> SWAP TO SIMPLE (renderers hidden)");
         }
 
-        /// <summary>
-        /// Swap back to KINEMATION character after portal.
-        /// </summary>
+        // restore KINEMATION character after portal is done
         public void SwapToKinemation()
         {
             if (!_isSwapped || kinemationCharacter == null || _simpleCharacterInstance == null)
@@ -137,15 +124,13 @@ namespace CloneProject
                 return;
             }
 
-            // Sync position from simple character
             kinemationCharacter.transform.localPosition = _simpleCharacterInstance.transform.localPosition;
             kinemationCharacter.transform.localRotation = _simpleCharacterInstance.transform.localRotation;
 
-            // Hide simple, show KINEMATION
             _simpleCharacterInstance.SetActive(false);
             SetKinemationRenderersVisible(true);
 
-            // Soft animator update (NO Rebind - it crashes KINEMATION!)
+            // soft update only - Rebind() crashes KINEMATION
             var animator = kinemationCharacter.GetComponent<Animator>();
             if (animator != null)
             {
@@ -157,10 +142,7 @@ namespace CloneProject
             if (verboseDebug) Debug.Log("[KinemationPortalSwap] <<< SWAP TO KINEMATION (renderers visible)");
         }
 
-        /// <summary>
-        /// Show or hide KINEMATION character renderers without disabling the GameObject.
-        /// This keeps animation jobs running safely.
-        /// </summary>
+        // toggle renderer visibility without touching the GameObject's active state
         private void SetKinemationRenderersVisible(bool visible)
         {
             if (_kinemationRenderers == null) return;
