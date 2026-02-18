@@ -9,7 +9,7 @@ public class DiagnoseCharacter
     [MenuItem("Tools/Demagnetized/Diagnose Character Setup")]
     static void Run()
     {
-        Debug.Log("=== [Diag] CHARACTER SETUP DIAGNOSTIC ===");
+        Debug.Log("[Diag] Starting character diagnostic...");
 
         var animator = Object.FindFirstObjectByType<Animator>();
         if (animator == null) { Debug.LogError("[Diag] No Animator"); return; }
@@ -48,7 +48,7 @@ public class DiagnoseCharacter
 
         DiagnoseStepAssets();
 
-        Debug.Log("=== [Diag] DIAGNOSTIC COMPLETE ===");
+        Debug.Log("[Diag] Diagnostic complete.");
     }
 
     static void DiagnoseSkeleton(Animator animator)

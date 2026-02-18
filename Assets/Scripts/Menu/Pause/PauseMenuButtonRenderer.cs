@@ -3,11 +3,7 @@ using System;
 
 namespace Menu.Pause
 {
-    /// <summary>
-    /// V20 RENDERER: LUXE BUTTONS (Clean, Orange Accent)
-    /// Rich details: Index numbers, accent lines, hover effects.
-    /// Uses shared texture from MenuStyles.
-    /// </summary>
+    // button rendering for the pause menu
     public static class PauseMenuButtonRenderer
     {
         private static GUIStyle _buttonStyle;
@@ -37,8 +33,6 @@ namespace Menu.Pause
             if(isHovered && !isSelected) onHover?.Invoke();
             if(isHovered && Event.current.type==EventType.MouseDown && Event.current.button==0) { onClick?.Invoke(); clicked=true; Event.current.Use(); }
 
-            // === CLEAN LUXE VISUALS ===
-            
             Color accent = isDanger ? MenuStyles.Danger : Color.white;
 
             // Background highlight for selected

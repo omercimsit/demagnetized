@@ -61,7 +61,7 @@ public static class ProjectHygieneAudit
         var demoScenes = scenePaths.Where(p => p.IndexOf("/Demo/", StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
 
         var sb = new StringBuilder();
-        sb.AppendLine("=== CLONEPROJECT1 ASSET HYGIENE REPORT ===");
+        sb.AppendLine("CLONEPROJECT1 - Asset Hygiene Report");
         sb.AppendLine($"Generated UTC: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine();
 

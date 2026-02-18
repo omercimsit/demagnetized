@@ -2,11 +2,7 @@ using UnityEngine;
 
 namespace Menu.Pause
 {
-    /// <summary>
-    /// V23 RENDERER: CLEAN LUXE PANEL
-    /// Rich details without eye strain.
-    /// Uses shared texture from MenuStyles.
-    /// </summary>
+    // draws the dark panel background and decorations
     public static class PauseMenuPanelRenderer
     {
         // Use shared texture from MenuStyles to avoid duplication
@@ -117,9 +113,7 @@ namespace Menu.Pause
             GUI.color = new Color(PauseMenuConfig.SuccessColor.r, PauseMenuConfig.SuccessColor.g, PauseMenuConfig.SuccessColor.b, blink * alpha);
             GUI.DrawTexture(new Rect(r.x + 200, Screen.height - 28, 6, 6), SolidTex);
         }
-        /// <summary>
-        /// Draw the game title indicator with localization support
-        /// </summary>
+        // title indicator with localization
         public static void DrawPausedIndicator(float w, float alpha, float uiScale, Font font, 
             string pausedText = "DEMAGNETIZED", string subtitleText = "SYSTEM SUSPENDED")
         {

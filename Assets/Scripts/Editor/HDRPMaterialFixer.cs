@@ -7,7 +7,7 @@ using UnityEngine.Rendering.HighDefinition;
 // fixes purple objects by reassigning broken shaders to HDRP/Lit
 public class HDRPMaterialFixer : EditorWindow
 {
-    [MenuItem("Tools/AAA Setup/FIX PURPLE OBJECTS", false, 1)]
+    [MenuItem("Tools/Demagnetized/Fix Purple Objects", false, 1)]
     public static void ShowWindow()
     {
         var window = GetWindow<HDRPMaterialFixer>("Fix Purple Objects");

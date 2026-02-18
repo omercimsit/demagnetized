@@ -2,13 +2,10 @@ using UnityEngine;
 
 namespace Menu.Pause
 {
-    /// <summary>
-    /// Centralized configuration for Pause Menu visual elements.
-    /// All magic numbers and sizes are defined here for easy tuning.
-    /// </summary>
+    // pause menu config - sizes, colors, animation speeds
     public static class PauseMenuConfig
     {
-        // === FONT SIZES ===
+        // Font sizes
         public const float TitleFontSize = 72f;
         public const float HeaderFontSize = 28f;
         public const float ButtonFontSizeNormal = 26f;
@@ -19,10 +16,10 @@ namespace Menu.Pause
         public const float SettingLabelFontSize = 11f;
         public const float ValueFontSize = 18f;
 
-        // === BUTTON COUNT ===
+        // Button count
         public const int MaxButtonCount = 15;
 
-        // === LAYOUT ===
+        // Layout
         public const float PanelWidth = 500f;
         public const float PanelStartX = 120f;
         public const float ButtonHeight = 55f;
@@ -34,7 +31,7 @@ namespace Menu.Pause
         public const float SettingRowSpacing = 55f;
         public const float CompactRowSpacing = 38f;
 
-        // === ANIMATION ===
+        // Animation
         public const float MenuFadeSpeed = 4f;
         public const float SettingsFadeSpeed = 6f;
         public const float TabTransitionSpeed = 8f;
@@ -45,7 +42,7 @@ namespace Menu.Pause
         public const float TooltipDelay = 0.3f;
         public const float FeedbackFadeThreshold = 0.5f;
 
-        // === VHS EFFECTS ===
+        // VHS effects
         public const float ScanlineScrollSpeed = 50f;
         public const float GlitchProbability = 0.02f;
         public const float GlitchDuration = 0.05f;
@@ -54,7 +51,7 @@ namespace Menu.Pause
         public const float ScanlineAlpha = 0.25f;
         public const float BlinkPeriod = 2f;
 
-        // === COLORS ===
+        // Colors
         // Accent colors delegate to MenuStyles canonical palette
         public static Color AccentColor   => MenuStyles.Amber;
         public static Color DangerColor   => MenuStyles.Danger;
@@ -68,7 +65,7 @@ namespace Menu.Pause
         public static readonly Color HighlightBg = new Color(1f, 1f, 1f, 0.06f);
         public static readonly Color SeparatorColor = new Color(1f, 1f, 1f, 0.1f);
 
-        // === SHARED TEXTURE (Delegated to MenuStyles) ===
+        // Shared texture (delegated to MenuStyles)
         public static Texture2D SharedTexture => MenuStyles.SolidTexture;
     }
 }

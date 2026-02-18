@@ -2,10 +2,8 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 
-/// <summary>
-/// Simple Localization System - Supports Turkish, English, German
-/// Usage: LocalizationManager.Instance.Get("key") or L.Get("key")
-/// </summary>
+// Simple localization - supports Turkish, English, German
+// usage: LocalizationManager.Instance.Get("key") or L.Get("key")
 public class LocalizationManager : Singleton<LocalizationManager>
 {
 
@@ -22,9 +20,6 @@ public class LocalizationManager : Singleton<LocalizationManager>
     private const string LANGUAGE_PREF_KEY = "Language";
     private static readonly int MaxLanguageIndex = Enum.GetValues(typeof(Language)).Length - 1;
 
-    /// <summary>
-    /// Fired when the active language changes. Subscribe to refresh cached localized strings.
-    /// </summary>
     public static event Action<Language> OnLanguageChanged;
 
     private Dictionary<string, string[]> translations;
@@ -102,7 +97,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
         // Format: { "key", new string[] { "Turkish", "English", "German" } }
         translations = new Dictionary<string, string[]>
         {
-            // ============ MAIN MENU ============
+            // Main menu
             { "paused", new[] { "D U R A K L A T I L D I", "P A U S E D", "P A U S I E R T" } },
             { "resume", new[] { "DEVAM ET", "RESUME", "FORTSETZEN" } },
             { "settings", new[] { "AYARLAR", "SETTINGS", "EINSTELLUNGEN" } },
@@ -111,17 +106,17 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "back", new[] { "GERİ", "BACK", "ZURÜCK" } },
             { "clicktostart", new[] { "BAŞLAMAK İÇİN TIKLA", "CLICK TO START", "KLICKE ZUM STARTEN" } },
 
-            // ============ SETTINGS TABS ============
+            // Settings tabs
             { "tab_game", new[] { "OYUN", "GAME", "SPIEL" } },
             { "tab_graphics", new[] { "GRAFİK", "GRAPHICS", "GRAFIK" } },
             { "tab_effects", new[] { "EFEKTLER", "EFFECTS", "EFFEKTE" } },
 
-            // ============ GAME SETTINGS ============
+            // Game settings
             { "language", new[] { "DİL", "LANGUAGE", "SPRACHE" } },
             { "audio", new[] { "SES", "AUDIO", "AUDIO" } },
             { "sensitivity", new[] { "HASSASİYET", "SENSITIVITY", "EMPFINDLICHKEIT" } },
 
-            // ============ GRAPHICS SETTINGS ============
+            // Graphics
             { "display", new[] { "EKRAN", "DISPLAY", "ANZEIGE" } },
             { "fullscreen", new[] { "TAM EKRAN", "FULLSCREEN", "VOLLBILD" } },
             { "windowed", new[] { "PENCERE", "WINDOWED", "FENSTER" } },
@@ -134,7 +129,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "antialiasing", new[] { "ANTİ-ALİASİNG", "ANTI-ALIASING", "KANTENGLÄTTUNG" } },
             { "sharpness", new[] { "Keskinlik:", "Sharpness:", "Schärfe:" } },
 
-            // ============ DLSS DESCRIPTIONS ============
+            // DLSS descriptions
             { "dlss_off", new[] { "DLSS kapalı - TAA kullanılır", "DLSS off - using TAA", "DLSS aus - TAA wird verwendet" } },
             { "dlss_dlaa", new[] { "Native çözünürlük + AI AA", "Native resolution + AI AA", "Native Auflösung + AI AA" } },
             { "dlss_quality", new[] { "1.5x upscale - iyi kalite", "1.5x upscale - good quality", "1.5x Upscale - gute Qualität" } },
@@ -142,7 +137,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "dlss_performance", new[] { "2x upscale - yüksek FPS", "2x upscale - high FPS", "2x Upscale - hohe FPS" } },
             { "dlss_ultra", new[] { "3x upscale - max FPS", "3x upscale - max FPS", "3x Upscale - max FPS" } },
 
-            // ============ EFFECTS SETTINGS ============
+            // Effects settings
             { "postprocessing", new[] { "POST-PROCESSING", "POST-PROCESSING", "NACHBEARBEITUNG" } },
             { "lighting", new[] { "AYDINLATMA", "LIGHTING", "BELEUCHTUNG" } },
             { "bloom", new[] { "BLOOM", "BLOOM", "BLOOM" } },
@@ -153,29 +148,29 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "ssr", new[] { "SSR", "SSR", "SSR" } },
             { "volumetricfog", new[] { "VOLUMETRIC FOG", "VOLUMETRIC FOG", "VOLUMETRISCHER NEBEL" } },
 
-            // ============ SETTINGS TABS (Main Menu) ============
+            // Settings tabs (main menu)
             { "tab_audio", new[] { "SES", "AUDIO", "AUDIO" } },
             { "tab_video", new[] { "VİDEO", "VIDEO", "VIDEO" } },
             { "tab_controls", new[] { "KONTROLLER", "CONTROLS", "STEUERUNG" } },
             { "tab_accessibility", new[] { "ERİŞİM", "ACCESSIBILITY", "BARRIEREFREIHEIT" } },
 
-            // ============ VIDEO SETTINGS ============
+            // Video settings
             { "resolution", new[] { "ÇÖZÜNÜRLÜK", "RESOLUTION", "AUFLÖSUNG" } },
             { "vsync", new[] { "VSYNC", "VSYNC", "VSYNC" } },
             { "fps_limit", new[] { "FPS LİMİTİ", "FPS LIMIT", "FPS LIMIT" } },
             { "dlss_mode", new[] { "ANTİ-ALİASİNG / DLSS", "ANTI-ALIASING / DLSS", "KANTENGLÄTTUNG / DLSS" } },
             { "aa_taa_active", new[] { "ANTİ-ALİASİNG: TAA (AKTİF)", "ANTI-ALIASING: TAA (ACTIVE)", "KANTENGLÄTTUNG: TAA (AKTIV)" } },
 
-            // ============ CONTROLS SETTINGS ============
+            // Controls settings
             { "mouse_sensitivity", new[] { "FARE HASSASİYETİ", "MOUSE SENSITIVITY", "MAUSEMPFINDLICHKEIT" } },
             { "invert_y", new[] { "Y EKSENİ TERS", "INVERT Y", "Y UMKEHREN" } },
             { "fov", new[] { "GÖRÜŞ ALANI", "FIELD OF VIEW", "SICHTFELD" } },
 
-            // ============ ACCESSIBILITY SETTINGS ============
+            // Accessibility settings
             { "subtitle_size", new[] { "ALTYAZI BOYUTU", "SUBTITLE SIZE", "UNTERTITELGRÖSSE" } },
             { "colorblind_mode", new[] { "RENK KÖRLÜĞÜ", "COLORBLIND MODE", "FARBENBLINDMODUS" } },
 
-            // ============ PAUSE MENU TABS ============
+            // Pause menu tabs
             { "system_suspended", new[] { "SİSTEM ASKIDA", "SYSTEM SUSPENDED", "SYSTEM ANGEHALTEN" } },
             { "configure_options", new[] { "Oyun ayarlarını yapılandır", "Configure game options", "Spieloptionen konfigurieren" } },
             { "camera", new[] { "KAMERA", "CAMERA", "KAMERA" } },
@@ -187,16 +182,16 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "settings_saved", new[] { "Ayarlar Kaydedildi", "Settings Saved", "Einstellungen Gespeichert" } },
             { "defaults_restored", new[] { "Varsayılanlar Yüklendi", "Defaults Restored", "Standards Wiederhergestellt" } },
 
-            // ============ COMMON ============
+            // Common
             { "on", new[] { "AÇIK", "ON", "AN" } },
             { "off", new[] { "KAPALI", "OFF", "AUS" } },
             { "apply", new[] { "UYGULA", "APPLY", "ANWENDEN" } },
             { "reset", new[] { "SIFIRLA", "RESET", "ZURÜCKSETZEN" } },
 
-            // ============ AUDIO LABELS ============
+            // Audio labels
             { "ambience", new[] { "ORTAM SESİ", "AMBIENCE", "UMGEBUNG" } },
 
-            // ============ SUBTITLE / ACCESSIBILITY ============
+            // Subtitle / accessibility
             { "size_small", new[] { "KÜÇÜK", "SMALL", "KLEIN" } },
             { "size_medium", new[] { "ORTA", "MEDIUM", "MITTEL" } },
             { "size_large", new[] { "BÜYÜK", "LARGE", "GROSS" } },
@@ -205,7 +200,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "cb_protanopia", new[] { "PROTANOPI", "PROTANOPIA", "PROTANOPIE" } },
             { "cb_tritanopia", new[] { "TRİTANOPİ", "TRITANOPIA", "TRITANOPIE" } },
 
-            // ============ WORKBENCH MENU ============
+            // Workbench menu
             { "insert_cassette", new[] { "[ KASET TAK ]", "[ INSERT CASSETTE ]", "[ KASSETTE EINLEGEN ]" } },
             { "press_play", new[] { "[ OYNAT ]", "[ PRESS PLAY ]", "[ PLAY DRÜCKEN ]" } },
             { "calibrate", new[] { "[ KALİBRE ET ]", "[ CALIBRATE ]", "[ KALIBRIEREN ]" } },
@@ -213,7 +208,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "repair_station", new[] { "TAMİR İSTASYONU", "REPAIR STATION", "REPARATURSTATION" } },
             { "click_to_select", new[] { "[SEÇMEK İÇİN TIKLA]", "[CLICK TO SELECT]", "[KLICKEN ZUM AUSWÄHLEN]" } },
 
-            // ============ CLONE SELECTION ============
+            // Clone selection
             { "select_clone", new[] { "KLON SEÇ", "SELECT CLONE", "KLON WÄHLEN" } },
             { "clone_routine", new[] { "RUTİN", "ROUTINE", "ROUTINE" } },
             { "clone_shadow", new[] { "GÖLGE", "SHADOW", "SCHATTEN" } },
@@ -221,21 +216,21 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "release_to_confirm", new[] { "Seçimi onaylamak için TAB'ı bırakın", "Release TAB to confirm selection", "TAB loslassen zum Bestätigen" } },
             { "swap_cassette", new[] { "[ Kaset değiştirmek için TIKLA veya BIRAK ]", "[ CLICK or RELEASE to swap cassette ]", "[ KLICKEN oder LOSLASSEN zum Kassettenwechsel ]" } },
 
-            // ============ RECORDING HUD ============
+            // Recording HUD
             { "recording", new[] { "KAYIT", "REC", "AUFN" } },
             { "tape_remaining", new[] { "KALAN KASET", "TAPE REMAINING", "BAND ÜBRIG" } },
             { "pause", new[] { "DURAKLAT", "PAUSE", "PAUSE" } },
 
-            // ============ VHS PAUSE MENU ============
+            // VHS pause menu
             { "play", new[] { "OYNAT", "PLAY", "ABSPIELEN" } },
             { "rewind", new[] { "GERİ SAR", "REWIND", "ZURÜCKSPULEN" } },
             { "eject", new[] { "ÇIKAR", "EJECT", "AUSWERFEN" } },
             { "checkpoint", new[] { "KONTROL NOKTASI", "CHECKPOINT", "KONTROLLPUNKT" } },
 
-            // ============ PAUSE MENU UI ============
+            // Pause menu UI
             { "clone_system_status", new[] { "KLON SİSTEMİ v2.0 // KARARLI", "CLONE SYSTEM v2.0 // STABLE", "KLONSYSTEM v2.0 // STABIL" } },
 
-            // ============ CONFIRMATION DIALOGS ============
+            // Confirmation dialogs
             { "confirm_mainmenu", new[] { "Ana menüye dönmek istediğinize emin misiniz?\nKaydedilmemiş ilerleme kaybolacak.", "Return to main menu?\nUnsaved progress will be lost.", "Zurück zum Hauptmenü?\nNicht gespeicherter Fortschritt geht verloren." } },
             { "confirm_mainmenu_title", new[] { "ANA MENÜ", "MAIN MENU", "HAUPTMENÜ" } },
             { "confirm_quit", new[] { "Oyundan çıkmak istediğinize emin misiniz?", "Are you sure you want to quit?", "Möchten Sie das Spiel wirklich beenden?" } },
@@ -243,14 +238,14 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "button_yes", new[] { "EVET", "YES", "JA" } },
             { "button_no", new[] { "HAYIR", "NO", "NEIN" } },
 
-            // ============ CREDITS ============
+            // Credits
             { "credits_subtitle", new[] { "BİR OYUN", "A GAME BY", "EIN SPIEL VON" } },
             { "credits_role_design_art", new[] { "Oyun Tasarımı • Sanat Yönetimi", "Game Design • Art Direction", "Spieldesign • Art Direction" } },
             { "credits_role_design_code", new[] { "Oyun Tasarımı • Programlama", "Game Design • Programming", "Spieldesign • Programmierung" } },
             { "credits_copyright", new[] { "© 2026 Tüm Hakları Saklıdır", "© 2026 All Rights Reserved", "© 2026 Alle Rechte vorbehalten" } },
             { "credits_close_hint", new[] { "[ Tıkla veya ESC ile kapat ]", "[ Click or ESC to close ]", "[ Klick oder ESC zum Schließen ]" } },
 
-            // ============ CLONE SYSTEM UI ============
+            // Clone system UI
             { "clone_select_title", new[] { "◈  KLON TÜRÜ SEÇ  ◈", "◈  SELECT CLONE TYPE  ◈", "◈  KLON-TYP WÄHLEN  ◈" } },
             { "clone_select_subtitle", new[] { "Zamansal yankı kişiliğini seç", "Choose your temporal echo personality", "Wähle die Persönlichkeit deines Zeitechos" } },
             { "clone_recorded", new[] { "KAYITLI", "RECORDED", "AUFGENOMMEN" } },
@@ -270,42 +265,42 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "phase_paused", new[] { "DURDURULDU", "PAUSED", "PAUSIERT" } },
             { "phase_playing", new[] { "Oynatılıyor", "Playing", "Wiedergabe" } },
 
-            // ============ VHS / LOADING ============
+            // VHS / loading
             { "vhs_pause", new[] { "DURAKLAT", "PAUSE", "PAUSE" } },
             { "loading", new[] { "YÜKLENİYOR", "LOADING", "LADEN" } },
 
-            // ============ STATUS PANEL HINTS ============
+            // Status panel hints
             { "status_hint_idle", new[] { "[TAB] Seç   [R] Kayıt", "[TAB] Select   [R] Record", "[TAB] Auswählen   [R] Aufnahme" } },
             { "status_hint_recording", new[] { "[R] Kaydı Durdur", "[R] Stop Recording", "[R] Aufnahme Stoppen" } },
             { "status_hint_review", new[] { "[SPACE] Oynat   [TAB] Seç   [R] Kayıt", "[SPACE] Play   [TAB] Select   [R] Record", "[SPACE] Abspielen   [TAB] Auswählen   [R] Aufnahme" } },
             { "status_hint_playback", new[] { "[SPACE] Duraklat/Devam", "[SPACE] Pause/Resume", "[SPACE] Pause/Weiter" } },
             { "status_hint_rewinding", new[] { "Geri Sarılıyor...", "Rewinding...", "Zurückspulen..." } },
 
-            // ============ CONTROL HINTS ============
+            // Control hints
             { "hint_mouse_speed", new[] { "Fare bakış hızı", "Mouse look speed", "Mausgeschwindigkeit" } },
             { "hint_fov", new[] { "Görüş açısı (geniş = daha görünür)", "Field of view (wider = more visible)", "Sichtfeld (breiter = mehr sichtbar)" } },
 
-            // ============ FOV DESCRIPTIONS ============
+            // FOV descriptions
             { "fov_narrow", new[] { "Dar (Sinematik)", "Narrow (Cinematic)", "Schmal (Cinematic)" } },
             { "fov_standard", new[] { "Standart", "Standard", "Standard" } },
             { "fov_wide", new[] { "Geniş (Rekabetçi)", "Wide (Competitive)", "Weit (Kompetitiv)" } },
             { "fov_ultrawide", new[] { "Ultra Geniş", "Ultra Wide", "Ultra Weit" } },
 
-            // ============ DISPLAY HINTS ============
+            // Display hints
             { "hint_fullscreen", new[] { "Özel mod", "Exclusive mode", "Exklusiver Modus" } },
             { "hint_vsync", new[] { "FPS'i Hz'e sabitle", "Limit FPS to Hz", "FPS auf Hz begrenzen" } },
 
-            // ============ QUALITY DESCRIPTIONS ============
+            // Quality descriptions
             { "quality_desc_high", new[] { "En iyi görsel, DLSS Kalite (%66)", "Best visuals, DLSS Quality (66%)", "Beste Grafik, DLSS Qualität (66%)" } },
             { "quality_desc_balanced", new[] { "Dengeli, DLSS Dengeli (%58)", "Balanced, DLSS Balanced (58%)", "Ausgewogen, DLSS Ausgewogen (58%)" } },
             { "quality_desc_performance", new[] { "Maks FPS, DLSS Performans (%50)", "Max FPS, DLSS Performance (50%)", "Max FPS, DLSS Leistung (50%)" } },
 
-            // ============ DLSS MODEL INFO ============
+            // DLSS model info
             { "dlss_model_m", new[] { "DLSS 4.5 Model M (RTX 40/50 Optimize)", "DLSS 4.5 Model M (RTX 40/50 Optimized)", "DLSS 4.5 Modell M (RTX 40/50 Optimiert)" } },
             { "dlss_model_k", new[] { "DLSS Model K (RTX 20/30)", "DLSS Model K (RTX 20/30)", "DLSS Modell K (RTX 20/30)" } },
             { "dlss_not_supported", new[] { "DLSS desteklenmiyor (RTX gerekli)", "DLSS not supported (RTX required)", "DLSS nicht unterstützt (RTX erforderlich)" } },
 
-            // ============ EFFECTS HINTS ============
+            // Effects hints
             { "hint_bloom", new[] { "Işıldama", "Glow effects", "Lichteffekte" } },
             { "hint_vignette", new[] { "Kenar karartma", "Edge darkening", "Randabdunklung" } },
             { "hint_filmgrain", new[] { "Sinematik gren", "Cinematic grain", "Filmkorn" } },
@@ -314,10 +309,10 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "hint_ssao", new[] { "Ortam gölgeleri (GPU yoğun)", "Ambient shadows (GPU intensive)", "Umgebungsschatten (GPU intensiv)" } },
             { "hint_volumetricfog", new[] { "3D sis ışınları (GPU yoğun)", "3D fog rays (GPU intensive)", "3D Nebel (GPU intensiv)" } },
 
-            // ============ SPLASH / LOADING ============
+            // Splash / loading
             { "splash_press_any_key", new[] { "Devam etmek için bir tuşa basın", "Press any key to continue", "Beliebige Taste zum Fortfahren drücken" } },
 
-            // ============ DLSS DESCRIPTIONS ============
+            // DLSS descriptions (detailed)
             { "dlss_desc_off", new[] { "DLSS kapalı, TAA kullanılır", "DLSS off, uses TAA", "DLSS aus, TAA wird verwendet" } },
             { "dlss_desc_dlaa", new[] { "Native çözünürlük + DLSS AA (en iyi kalite)", "Native resolution + DLSS AA (best quality)", "Native Auflösung + DLSS AA (beste Qualität)" } },
             { "dlss_desc_quality", new[] { "1.5x upscale - iyi kalite", "1.5x upscale - good quality", "1.5x Upscale - gute Qualität" } },
@@ -325,7 +320,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "dlss_desc_performance", new[] { "2x upscale - yüksek FPS", "2x upscale - high FPS", "2x Upscale - hohe FPS" } },
             { "dlss_desc_ultraperf", new[] { "3x upscale - max FPS", "3x upscale - max FPS", "3x Upscale - max FPS" } },
 
-            // ============ DEBUG UI ============
+            // Debug UI
             { "debug_total", new[] { "Toplam", "Total", "Gesamt" } },
             { "debug_visible", new[] { "Görünen", "Visible", "Sichtbar" } },
             { "debug_status", new[] { "DURUM", "STATUS", "STATUS" } },
@@ -339,7 +334,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "progress_lost_warning", new[] { "TÜM İLERLEME KAYBOLACAK", "ALL PROGRESS WILL BE LOST", "ALLER FORTSCHRITT GEHT VERLOREN" } },
             { "debug_overlay_controls", new[] { "F1: Paneli aç/kapat | ESC: Ayarlar", "F1: Toggle this overlay | ESC: Settings menu", "F1: Overlay umschalten | ESC: Einstellungen" } },
 
-            // ============ MAIN MENU ITEMS ============
+            // Main menu items
             { "menu_continue", new[] { "DEVAM", "CONTINUE", "FORTSETZEN" } },
             { "menu_side_a", new[] { "A YÜZÜ", "SIDE A", "SEITE A" } },
             { "menu_new_recording", new[] { "YENİ KAYIT", "NEW RECORDING", "NEUE AUFNAHME" } },
@@ -351,7 +346,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "btn_cancel", new[] { "İptal", "Cancel", "Abbrechen" } },
             { "btn_erase_record", new[] { "Sil ve Kaydet", "Erase & Record", "Löschen & Aufnehmen" } },
 
-            // ============ CLONE TYPES ============
+            // Clone types
             { "clone_routine", new[] { "RUTİN", "ROUTINE", "ROUTINE" } },
             { "clone_routine_desc", new[] { "SUPERHOT Zaman", "SUPERHOT Time", "SUPERHOT-Zeit" } },
             { "clone_fear", new[] { "KORKU", "FEAR", "ANGST" } },
@@ -359,11 +354,11 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "clone_brave", new[] { "CESARET", "BRAVE", "MUTIG" } },
             { "clone_brave_desc", new[] { "Hız Artışı", "Speed Boost", "Geschwindigkeitsschub" } },
 
-            // ============ VHS LOADING ============
+            // VHS loading
             { "vhs_rec", new[] { "KAY", "REC", "AUF" } },
             { "vhs_play", new[] { "▶ OYNAT", "▶ PLAY", "▶ ABSPIELEN" } },
 
-            // ============ CREDITS ============
+            // Credits (roles)
             { "credits_created_by", new[] { "YAPAN", "CREATED BY", "ERSTELLT VON" } },
             { "credits_game_design", new[] { "OYUN TASARIMI", "GAME DESIGN", "SPIELDESIGN" } },
             { "credits_programming", new[] { "PROGRAMLAMA", "PROGRAMMING", "PROGRAMMIERUNG" } },
@@ -375,16 +370,16 @@ public class LocalizationManager : Singleton<LocalizationManager>
             { "credits_thanks_names", new[] { "Unity Technologies\nNVIDIA\nAçık kaynak topluluğu", "Unity Technologies\nNVIDIA\nThe open-source community", "Unity Technologies\nNVIDIA\nDie Open-Source-Community" } },
             { "credits_you_playing", new[] { "Oynadığın için.", "You, for playing.", "Dafür, dass du spielst." } },
 
-            // ============ HUD LABELS ============
+            // HUD labels
             { "hud_chapter", new[] { "BÖLÜM", "CHAPTER", "KAPITEL" } },
             { "hud_ch2_name", new[] { "Silme", "Erasure", "Löschung" } },
             { "hud_scene", new[] { "SAHNE", "SCENE", "SZENE" } },
 
-            // ============ NAVIGATION HINTS ============
+            // Navigation hints
             { "nav_navigate", new[] { "GEZİN", "NAVIGATE", "NAVIGIEREN" } },
             { "nav_select", new[] { "SEÇ", "SELECT", "AUSWÄHLEN" } },
 
-            // ============ TECHNICAL LABELS ============
+            // Technical labels
             { "render_label", new[] { "Render", "Render", "Render" } },
             { "sample_rate", new[] { "Örnekleme Hızı", "Sample Rate", "Abtastrate" } },
             { "interact_prompt", new[] { "Etkileşmek için [E]", "Press [E] to interact", "[E] zum Interagieren" } },
@@ -392,11 +387,7 @@ public class LocalizationManager : Singleton<LocalizationManager>
     }
 }
 
-/// <summary>
-/// Shortcut class for localization: L.Get("key")
-/// Tries Unity Localization (Loc) first, falls back to legacy LocalizationManager.
-/// After migration is verified, the fallback can be removed.
-/// </summary>
+// shortcut: L.Get("key") - tries Unity Localization first, falls back to legacy dict
 public static class L
 {
     public static string Get(string key)

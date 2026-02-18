@@ -2,15 +2,10 @@ using UnityEngine;
 
 namespace Menu.Pause
 {
-    /// <summary>
-    /// VHS Effects Renderer (Refined)
-    /// Subtle analog imperfections to add texture without reducing readability.
-    /// </summary>
+    // VHS distortion effects for the pause menu
     public static class PauseMenuVHSEffects
     {
-        /// <summary>
-        /// Noise texture delegated to MenuStyles (single canonical 128x128 texture).
-        /// </summary>
+        // noise texture from MenuStyles
         public static Texture2D NoiseTex => MenuStyles.NoiseTexture;
         
         private static Texture2D _scanlineTex;
