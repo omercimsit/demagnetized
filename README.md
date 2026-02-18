@@ -2,7 +2,7 @@
 
 > First-person puzzle game where you record yourself, then cooperate with your past clones to solve puzzles.
 
-![banner](Screenshots/banner.png)
+![banner](Screenshots/intro+mainmenu.gif)
 
 Built solo in Unity HDRP. Inspired by SUPERHOT's time mechanics — but instead of slowing time, you record your actions and replay them as clones. Combined with real portals, kinetic grab mechanics, and a VHS visual style.
 
@@ -16,7 +16,7 @@ Built solo in Unity HDRP. Inspired by SUPERHOT's time mechanics — but instead 
 
 Record player movement, rotation, and bone poses frame-by-frame, then instantiate clones that replay those actions. Uses Catmull-Rom interpolation for smooth playback, keyframe compression to reduce memory, and object pooling for zero-allocation spawning.
 
-![clone system](Screenshots/clone-system.gif)
+![clone system](Screenshots/clonemenu.png)
 
 ### Portal System
 
@@ -28,13 +28,14 @@ Portals with correct camera-space matrix transforms — not just the usual obliq
 
 Custom IK bone creation tools, foot-ground placement via sphere casting, full-body IK with pole targets, and a delta-rotation approach to prevent 180-degree foot flips during solver passes. Editor tools for bone remapping across different skeleton rigs.
 
-![foot ik](Screenshots/footik.gif)
+![foot ik](Screenshots/footik1.gif)
+![foot ik detail](Screenshots/footik2.gif)
 
 ### Kinetic Tension (Grab & Hold)
 
 Physics-based chain grab mechanic. Detect nearby interactables, grab with IK-driven hands, record grab state into the clone system for cooperative playback. Time-freeze visual feedback on activation.
 
-![tension](Screenshots/tension-grab.gif)
+<!-- no tension grab recording yet -->
 
 ### NVIDIA DLSS Integration
 
@@ -44,13 +45,13 @@ Runtime DLSS mode switching for HDRP — including DLAA, Quality, Balanced, Perf
 
 Procedural Gerstner wave mesh that chases the player through corridors. Integrates with HDRP Water system (WaterSurface + WaterDeformer) and VFX Graph for splash particles.
 
-![flood](Screenshots/flood.gif)
+<!-- no flood recording yet -->
 
 ### Menu System
 
 Full main menu and pause menu drawn with IMGUI. VHS tracking lines, scanlines, tape-insert animations, live background scene rendering. Modular pause menu with separated state, rendering, and effect modules.
 
-![menu](Screenshots/menu.png)
+![menu](Screenshots/pausemenu.gif)
 
 ### Runtime Optimization
 
