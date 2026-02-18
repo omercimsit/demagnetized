@@ -16,7 +16,7 @@ Built solo in Unity HDRP. Inspired by SUPERHOT's time mechanics — but instead 
 
 Record player movement, rotation, and bone poses frame-by-frame, then instantiate clones that replay those actions. Uses Catmull-Rom interpolation for smooth playback, keyframe compression to reduce memory, and object pooling for zero-allocation spawning.
 
-![clone system](Screenshots/clonemenu.png)
+![clone system](Screenshots/clonemenu.gif)
 
 ### Portal System
 
